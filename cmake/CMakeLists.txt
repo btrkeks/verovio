@@ -38,6 +38,7 @@ option(NO_EDIT_SUPPORT          "Disable editor code"                          O
 option(NO_RUNTIME               "Disable runtime clock support"                ON)
 option(BUILD_AS_LIBRARY         "Build Verovio as library"                     OFF)
 option(BUILD_AS_ANDROID_LIBRARY "Build Verovio as library for Android"         OFF)
+option(VEROVIO_BUILD_SHARED     "Build the Verovio library as a shared library" ON)
 option(USE_PAE_OLD_PARSER       "Use old PAE parser"                           OFF)
 
 if (NO_HUMDRUM_SUPPORT AND MUSICXML_DEFAULT_HUMDRUM)
@@ -208,11 +209,16 @@ set(all_SRC
 ##################
 
 if (BUILD_AS_LIBRARY OR BUILD_AS_ANDROID_LIBRARY)
-    message(STATUS "***** Building Verovio as shared library *****")
-    if(WIN32)
+    if(BUILD_AS_ANDROID_LIBRARY OR VEROVIO_BUILD_SHARED)
+        set(VEROVIO_LIBRARY_TYPE SHARED)
+    else()
+        set(VEROVIO_LIBRARY_TYPE STATIC)
+    endif()
+    message(STATUS "***** Building Verovio as ${VEROVIO_LIBRARY_TYPE} library *****")
+    if(WIN32 AND VEROVIO_LIBRARY_TYPE STREQUAL "SHARED")
 		add_definitions(-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS)
     endif()
-    add_library(verovio SHARED "../tools/c_wrapper.cpp" ${all_SRC})
+    add_library(verovio ${VEROVIO_LIBRARY_TYPE} "../tools/c_wrapper.cpp" ${all_SRC})
     # list all headers to be copied for all installation
     file(GLOB_RECURSE all_HEADERS "../include/*/*.h*" "../libmei/*/*.h*" "../tools/c_wrapper.h")
     configure_file(verovio.pc.in verovio.pc @ONLY)

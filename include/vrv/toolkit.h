@@ -842,6 +842,11 @@ private:
     char *m_cString;
 
     /**
+     * The Humdrum C buffer string.
+     */
+    char *m_humdrumBuffer;
+
+    /**
      * Temporary capture buffer for redirecting std::cerr to vrv::LogWarning.
      * Used to coordinate between LogRedirectStart()/LogRedirectStop().
      */
@@ -860,11 +865,6 @@ private:
     RuntimeClock *m_runtimeClock;
 #endif
 
-    //----------------//
-    // Static members //
-    //----------------//
-
-    static char *m_humdrumBuffer;
 };
 
 } // namespace vrv

@@ -62,8 +62,6 @@ const char *ZIP_SIGNATURE = "\x50\x4B\x03\x04";
 // Toolkit
 //----------------------------------------------------------------------------
 
-char *Toolkit::m_humdrumBuffer = NULL;
-
 Toolkit::Toolkit(bool initFont)
 {
     m_midiDoc = NULL;

@@ -72,6 +72,30 @@ class ChordTests(unittest.TestCase):
                          [('fing-L2F2S1', '#note-L2F1', '3'), ('fing-L2F2S2', '#note-L2F1', '4')])
 
 
+class CrossStaffTests(unittest.TestCase):
+    def test_each_hand_follows_its_drawn_staff(self):
+        source = '**kern\t**fing\t**kern\t**fing\n*clefF4\t*\t*clefG2\t*\n4C<\t3\t4c>\t2\n==\t==\t==\t==\n*-\t*-\t*-\t*-\n!!!RDF**kern: < = above\n!!!RDF**kern: > = below\n'
+        root = render(source)
+        self.assertEqual([(f.get('startid'), f.get('staff')) for f in fingerings(root)],
+                         [('#note-L3F1', '1'), ('#note-L3F3', '2')])
+        svg = render(source, 'svg')
+        groups = [e for e in svg.iter() if e.get('class') == 'fing']
+        self.assertEqual([''.join(g.itertext()).strip() for g in groups], ['3', '2'])
+
+    def test_entire_moved_chord_inherits_chord_staff(self):
+        source = '**kern\t**kern\t**fing\n*clefF4\t*clefG2\t*\n4C\t4c> 4e>\t1 3\n==\t==\t==\n*-\t*-\t*-\n!!!RDF**kern: > = below\n'
+        root = render(source)
+        self.assertEqual([(f.get('startid'), f.get('staff')) for f in fingerings(root)],
+                         [('#note-L3F2S1', '2'), ('#note-L3F2S2', '2')])
+        self.assertEqual(root.find('.//' + MEI + 'chord').get('staff'), '2')
+
+    def test_mixed_chord_fingerings_follow_each_note(self):
+        source = '**kern\t**kern\t**fing\n*clefF4\t*clefG2\t*\n4C\t4c 4e>\t1 3\n==\t==\t==\n*-\t*-\t*-\n!!!RDF**kern: > = below\n'
+        root = render(source)
+        self.assertEqual([(f.get('startid'), f.get('staff')) for f in fingerings(root)],
+                         [('#note-L3F2S1', '1'), ('#note-L3F2S2', '2')])
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--runner', type=Path, required=True)

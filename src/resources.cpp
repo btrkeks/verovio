@@ -413,8 +413,15 @@ bool Resources::LoadFont(const std::string &fontName, ZipFileReader *zipFile)
         }
     }
 
-    if (isFallback && glyphTable.size() < SMUFL_COUNT) {
-        LogError("Expected %d default SMuFL glyphs but could load only %d.", SMUFL_COUNT, glyphTable.size());
+    int expectedGlyphCount = SMUFL_COUNT;
+    if (fontName == LEIPZIG) {
+        // Fingering substitutions are drawn explicitly from Bravura outlines.
+        for (char32_t code : { SMUFL_ED20_fingeringSubstitutionAbove, SMUFL_ED21_fingeringSubstitutionBelow }) {
+            if (!glyphTable.contains(code)) --expectedGlyphCount;
+        }
+    }
+    if (isFallback && glyphTable.size() < expectedGlyphCount) {
+        LogError("Expected %d default SMuFL glyphs but could load only %d.", expectedGlyphCount, glyphTable.size());
         return false;
     }
 

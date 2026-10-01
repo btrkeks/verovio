@@ -577,6 +577,12 @@ void View::DrawSymbol(DeviceContext *dc, Symbol *symbol, TextDrawingParams &para
     assert(dc);
     assert(symbol);
 
+    if (symbol->GetFirstAncestor(FING)
+        && (symbol->GetGlyphName() == "fingeringSubstitutionAbove"
+            || symbol->GetGlyphName() == "fingeringSubstitutionBelow")) {
+        return;
+    }
+
     dc->StartTextGraphic(symbol, "", symbol->GetID());
 
     // This can happen after an <lb/>

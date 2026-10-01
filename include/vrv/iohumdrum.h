@@ -592,8 +592,8 @@ protected:
     int getSlurEndNumber(hum::HTp startslur, int slurstartnumber);
     void addHarmFloatsForMeasure(int startine, int endline);
     void addFingeringsForMeasure(int startline, int endline);
-    void insertFingerNumberInMeasure(
-        const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ, int index, int count);
+    void insertFingerNumberInMeasure(const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ,
+        int index, int count, int role);
     void addStringNumbersForMeasure(int startline, int endline);
     void addFiguredBassForMeasure(int startline, int endline);
     void processDynamics(hum::HTp token, int staffindex);

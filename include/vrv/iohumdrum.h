@@ -719,6 +719,7 @@ protected:
     std::string getEndIdForOttava(hum::HTp token);
     void prepareInitialOttavas(hum::HTp measure);
     void linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffindex);
+    hum::HTp getFingeringNote(hum::HTp token);
     bool checkForTupletForcedBreak(const std::vector<hum::HTp> &duritems, int index);
     void extractSlurNoteAttachmentInformation(std::vector<std::pair<int, bool>> &data, hum::HTp token, char slurtype);
     void extractPhraseNoteAttachmentInformation(

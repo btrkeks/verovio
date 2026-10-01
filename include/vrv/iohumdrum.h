@@ -593,7 +593,7 @@ protected:
     void addHarmFloatsForMeasure(int startine, int endline);
     void addFingeringsForMeasure(int startline, int endline);
     void insertFingerNumberInMeasure(
-        const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ);
+        const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ, int index, int count);
     void addStringNumbersForMeasure(int startline, int endline);
     void addFiguredBassForMeasure(int startline, int endline);
     void processDynamics(hum::HTp token, int staffindex);
@@ -718,7 +718,7 @@ protected:
     std::string getStartIdForOttava(hum::HTp token);
     std::string getEndIdForOttava(hum::HTp token);
     void prepareInitialOttavas(hum::HTp measure);
-    void linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffindex);
+    void linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffindex, int index, int count);
     hum::HTp getFingeringNote(hum::HTp token);
     bool checkForTupletForcedBreak(const std::vector<hum::HTp> &duritems, int index);
     void extractSlurNoteAttachmentInformation(std::vector<std::pair<int, bool>> &data, hum::HTp token, char slurtype);

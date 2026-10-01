@@ -13,3 +13,8 @@ python3 doc/fingering-tests/verify.py --runner /tmp/verovio-fingering-render --r
 
 Pass a unittest class name after the options to run one regression group.
 The resources must include the font data that matches the library.
+
+A chord's fingering token has one space-separated slot per kern subtoken,
+in kern source order. A `.` skips that note. Exact slot counts link each
+fingering to its note; older mismatched counts keep their chord anchor.
+Several space-separated fingers on a single note keep their shared anchor.

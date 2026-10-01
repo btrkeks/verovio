@@ -10693,15 +10693,9 @@ void HumdrumInput::addFingeringsForMeasure(int startline, int endline)
                 aboveQ = false;
             }
 
-            if (aboveQ) {
-                for (int k = 0; k < (int)nums.size(); k++) {
-                    insertFingerNumberInMeasure(nums[k], staffindex, token, maxstaff, aboveQ);
-                }
-            }
-            else {
-                for (int k = 0; k < (int)nums.size(); k++) {
-                    insertFingerNumberInMeasure(nums[k], staffindex, token, maxstaff, aboveQ);
-                }
+            for (int k = 0; k < (int)nums.size(); k++) {
+                if (nums[k] == ".") continue;
+                insertFingerNumberInMeasure(nums[k], staffindex, token, maxstaff, aboveQ, k, (int)nums.size());
             }
         }
     }
@@ -10713,7 +10707,7 @@ void HumdrumInput::addFingeringsForMeasure(int startline, int endline)
 //
 
 void HumdrumInput::insertFingerNumberInMeasure(
-    const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ)
+    const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ, int index, int count)
 {
 
     Fing *fing = new Fing();
@@ -10773,12 +10767,12 @@ void HumdrumInput::insertFingerNumberInMeasure(
         setPlaceRelStaff(fing, "below", false);
     }
     addChildMeasureOrSection(fing);
-    setLocationId(fing, token);
+    setLocationId(fing, token, count > 1 ? index : -1);
 
     // Previously used @tstamp, now use @startid of note/chord;
     // hum::HumNum tstamp = getMeasureTstamp(token, xstaffindex);
     // fing->SetTstamp(tstamp.getFloat());
-    linkFingeringToNote(fing, token, xstaffindex);
+    linkFingeringToNote(fing, token, xstaffindex, index, count);
 }
 
 //////////////////////////////
@@ -10789,7 +10783,7 @@ void HumdrumInput::insertFingerNumberInMeasure(
 //    use a @tstamp rather than a @startid to place the fingering.
 //
 
-void HumdrumInput::linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffindex)
+void HumdrumInput::linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffindex, int index, int count)
 {
     hum::HTp linkednote = getFingeringNote(token);
     if (!linkednote) {
@@ -10799,8 +10793,13 @@ void HumdrumInput::linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffind
     }
     else {
         std::string startid;
-        if (linkednote->find(" ") != std::string::npos) {
-            startid = getLocationId("chord", linkednote);
+        if (linkednote->getSubtokenCount() > 1) {
+            if (count == linkednote->getSubtokenCount()) {
+                startid = getLocationId("note", linkednote, index);
+            }
+            else {
+                startid = getLocationId("chord", linkednote);
+            }
         }
         else {
             startid = getLocationId("note", linkednote);

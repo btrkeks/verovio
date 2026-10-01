@@ -32,6 +32,11 @@ A local layout comment in the `**fing` field places the following data token:
 selects the second chord slot. Each stack in that slot follows the same
 placement. The comments override `*above` and `*below` for that data token.
 
+Fingering stacks sit between the note and its ornament sign. The floating
+positioning pass places fingerings before ornaments, so the sign clears the
+full stack on either side of the staff. The regression runner's `svg-bounds`
+mode exposes glyph bounds to verify this spacing, including every digit.
+
 The two arc paths and their bounds come from the bundled original Bravura SVG
 under `fonts/Bravura`. `fonts/supported.xml` includes ED20 and ED21, and
 `include/vrv/smufl.h` was regenerated with `fonts/generate.py smufl`.

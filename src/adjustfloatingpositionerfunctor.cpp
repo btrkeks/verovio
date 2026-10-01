@@ -184,6 +184,9 @@ FunctorCode AdjustFloatingPositionersFunctor::VisitSystem(System *system)
     m_classId = ACCID_FLOATING;
     system->m_systemAligner.Process(*this);
 
+    m_classId = FING;
+    system->m_systemAligner.Process(*this);
+
     m_classId = MORDENT;
     system->m_systemAligner.Process(*this);
 
@@ -194,9 +197,6 @@ FunctorCode AdjustFloatingPositionersFunctor::VisitSystem(System *system)
     system->m_systemAligner.Process(*this);
 
     m_classId = ORNAM;
-    system->m_systemAligner.Process(*this);
-
-    m_classId = FING;
     system->m_systemAligner.Process(*this);
 
     m_classId = DYNAM;

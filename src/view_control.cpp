@@ -54,6 +54,7 @@
 #include "smufl.h"
 #include "staff.h"
 #include "syl.h"
+#include "symbol.h"
 #include "symboldef.h"
 #include "system.h"
 #include "tempo.h"
@@ -2139,6 +2140,30 @@ void View::DrawFing(DeviceContext *dc, Fing *fing, Measure *measure, System *sys
         dc->EndText();
 
         dc->ResetFont();
+
+        Symbol *substitution = vrv_cast<Symbol *>(fing->FindDescendantByType(SYMBOL));
+        if (substitution
+            && (substitution->GetGlyphName() == "fingeringSubstitutionAbove"
+                || substitution->GetGlyphName() == "fingeringSubstitutionBelow")) {
+            Rend *rend = vrv_cast<Rend *>(substitution->GetFirstAncestor(REND));
+            int width = rend->GetContentRight() - rend->GetContentLeft();
+            Resources &resources = m_doc->GetResourcesForModification();
+            std::string previousFont = resources.GetCurrentFont();
+            resources.SetCurrentFont("Bravura");
+            char32_t code = substitution->GetSymbolGlyph();
+            const Glyph *glyph = resources.GetGlyph(code);
+            if (glyph && width > 0) {
+                FontInfo arcFont;
+                arcFont.SetPointSize(width * glyph->GetUnitsPerEm() / glyph->GetHorizAdvX());
+                dc->SetFont(&arcFont);
+                dc->StartGraphic(substitution, "", substitution->GetID());
+                dc->DrawMusicText(
+                    std::u32string(1, code), this->ToDeviceContextX(x - width / 2), this->ToDeviceContextY(y));
+                dc->EndGraphic(substitution, this);
+                dc->ResetFont();
+            }
+            resources.SetCurrentFont(previousFont);
+        }
 
         this->DrawTextEnclosure(dc, params, staffSize);
     }

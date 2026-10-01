@@ -10805,6 +10805,14 @@ void HumdrumInput::linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffind
             startid = getLocationId("note", linkednote);
         }
         fing->SetStartid("#" + startid);
+        Object *anchor = m_measure->FindDescendantByID(startid);
+        for (Object *element = anchor; element && !element->Is(STAFF); element = element->GetParent()) {
+            DurationInterface *duration = element->GetDurationInterface();
+            if (duration && duration->HasStaff()) {
+                setStaff(fing, duration->GetStaff().front());
+                break;
+            }
+        }
     }
 }
 

@@ -10783,44 +10783,15 @@ void HumdrumInput::insertFingerNumberInMeasure(
 
 //////////////////////////////
 //
-// HumdrumInput::linkFingeringToNote -- link to the note/chord in the highest layer
-//    (left-most spine) that is not a null data token. If no notes/chords at
+// HumdrumInput::linkFingeringToNote -- link to the matching note/chord.
+//    If no notes/chords are at
 //    the position of the finger (such as perhaps due to a finger-change, then
 //    use a @tstamp rather than a @startid to place the fingering.
 //
 
 void HumdrumInput::linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffindex)
 {
-    // token should be a **fing, so search for the **kern that it
-    // matches to the left, and then search for the last non-null
-    // kern token to link to the fingering (figure out later how to link
-    // to notes in secondary layers which will probably be done by
-    // placing fingerings in subspines of the **fing spine.
-
-    hum::HTp linkednote = NULL;
-    int linktrack = -1;
-
-    hum::HumdrumLine &line = *token->getLine();
-    int startfield = token->getFieldIndex();
-
-    for (int i = startfield - 1; i >= 0; i--) {
-        hum::HTp testtok = line.token(i);
-        if (!testtok->isKernLike()) {
-            continue;
-        }
-        linktrack = testtok->getTrack();
-        for (int j = i; j >= 0; j--) {
-            testtok = line.token(j);
-            int ttrack = testtok->getTrack();
-            if (ttrack != linktrack) {
-                break;
-            }
-            if (!testtok->isNull()) {
-                linkednote = testtok;
-            }
-        }
-        break;
-    }
+    hum::HTp linkednote = getFingeringNote(token);
     if (!linkednote) {
         // use a timestamp to place the fingering
         hum::HumNum tstamp = getMeasureTstamp(token, xstaffindex);
@@ -10836,6 +10807,36 @@ void HumdrumInput::linkFingeringToNote(Fing *fing, hum::HTp token, int xstaffind
         }
         fing->SetStartid("#" + startid);
     }
+}
+
+//////////////////////////////
+//
+// HumdrumInput::getFingeringNote -- Match mirrored fingering subspines to
+//    their kern layer. An unsplit fingering spine retains the first non-null
+//    layer convention.
+//
+
+hum::HTp HumdrumInput::getFingeringNote(hum::HTp token)
+{
+    hum::HumdrumLine &line = *token->getLine();
+    int subtrack = token->getSubtrack();
+    for (int i = token->getFieldIndex() - 1; i >= 0; --i) {
+        hum::HTp testtok = line.token(i);
+        if (!testtok->isKernLike()) continue;
+        int track = testtok->getTrack();
+        hum::HTp linkednote = NULL;
+        for (int j = i; j >= 0; --j) {
+            testtok = line.token(j);
+            if (testtok->getTrack() != track) break;
+            if (subtrack > 0) {
+                if (testtok->getSubtrack() != subtrack) continue;
+                return testtok->isNull() || testtok->isRest() ? NULL : testtok;
+            }
+            if (!testtok->isNull() && !testtok->isRest()) linkednote = testtok;
+        }
+        return linkednote;
+    }
+    return NULL;
 }
 
 //////////////////////////////

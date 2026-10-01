@@ -26,6 +26,14 @@ def fingerings(root):
     return root.findall('.//' + MEI + 'fing')
 
 
+def vertical_bounds(group):
+    boxes = group.findall('.//' + SVG + 'rect')
+    if not boxes:
+        raise AssertionError('The rendered group must expose its glyph bounds')
+    return (min(float(box.get('y')) for box in boxes),
+            max(float(box.get('y')) + float(box.get('height')) for box in boxes))
+
+
 class SubspineTests(unittest.TestCase):
     def test_matching_subspine_with_rest_in_first_voice(self):
         source = '**kern\t**fing\n*^\t*^\n4r\t4c\t.\t3\n*v\t*v\t*\t*\n*\t*v\t*v\n==\t==\n*-\t*-\n'
@@ -100,6 +108,37 @@ class CrossStaffTests(unittest.TestCase):
 
 
 class EngravingTests(unittest.TestCase):
+    def test_entire_stack_is_between_note_and_ornament_on_each_side(self):
+        for marker, kind in [('T', 'trill'), ('M', 'mordent'), ('sSS', 'turn')]:
+            for side, comment, sign in [('above', 'a', '>'), ('below', 'b', '<')]:
+                with self.subTest(ornament=kind, side=side):
+                    source = ('!!!RDF**kern: > = above\n!!!RDF**kern: < = below\n'
+                              '**kern\t**fing\n*\t*' + ('below' if side == 'above' else 'above')
+                              + '\n!\t!LO:FING:' + comment + ':n=1\n1d' + marker + sign
+                              + ' 1f\t2/1/2/1 .\n==\t==\n*-\t*-\n')
+                    mei = render(source)
+                    self.assertEqual([(f.get('startid'), f.get('place')) for f in fingerings(mei)],
+                                     [('#note-L6F1S1', side)] * 4)
+                    svg = render(source, 'svg-bounds')
+                    groups = [e for e in svg.iter() if e.get('class') == 'fing']
+                    self.assertEqual(len(groups), 4)
+                    texts = [g.find('.//' + SVG + 'text') for g in groups]
+                    self.assertEqual([''.join(t.itertext()).strip() for t in sorted(texts, key=lambda t: float(t.get('y')))],
+                                     ['2', '1', '2', '1'])
+                    stack = [vertical_bounds(group) for group in groups]
+                    stack_top = min(top for top, _ in stack)
+                    stack_bottom = max(bottom for _, bottom in stack)
+                    ornament = next(e for e in svg.iter() if e.get('class') == kind)
+                    ornament_top, ornament_bottom = vertical_bounds(ornament)
+                    note = next(e for e in svg.iter() if e.get('id') == 'note-L6F1S1')
+                    note_top, note_bottom = vertical_bounds(note)
+                    if side == 'above':
+                        self.assertLess(ornament_bottom, stack_top)
+                        self.assertLess(stack_bottom, note_top)
+                    else:
+                        self.assertLess(note_bottom, stack_top)
+                        self.assertLess(stack_bottom, ornament_top)
+
     def test_substitution_arcs_above_and_below(self):
         source = '**kern\t**fing\n*\t*above\n4c\t3-4\n*\t*below\n4d\t2-1\n==\t==\n*-\t*-\n'
         root = render(source)

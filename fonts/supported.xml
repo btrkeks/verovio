@@ -3109,8 +3109,8 @@
         <!--<glyph glyph-code="ED1D" smufl-name="fingeringXLower" />-->
         <!--<glyph glyph-code="ED1E" smufl-name="fingeringELower" />-->
         <!--<glyph glyph-code="ED1F" smufl-name="fingeringOLower" />-->
-        <!--<glyph glyph-code="ED20" smufl-name="fingeringSubstitutionAbove" />-->
-        <!--<glyph glyph-code="ED21" smufl-name="fingeringSubstitutionBelow" />-->
+        <glyph glyph-code="ED20" smufl-name="fingeringSubstitutionAbove" />
+        <glyph glyph-code="ED21" smufl-name="fingeringSubstitutionBelow" />
         <!--<glyph glyph-code="ED22" smufl-name="fingeringSubstitutionDash" />-->
         <!--<glyph glyph-code="ED23" smufl-name="fingeringMultipleNotes" />-->
         <!--<glyph glyph-code="ED24" smufl-name="fingering6" />-->

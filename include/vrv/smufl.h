@@ -665,6 +665,8 @@ enum {
     SMUFL_ECB3_metNote512thUp = 0xECB3,
     SMUFL_ECB5_metNote1024thUp = 0xECB5,
     SMUFL_ECB7_metAugmentationDot = 0xECB7,
+    SMUFL_ED20_fingeringSubstitutionAbove = 0xED20,
+    SMUFL_ED21_fingeringSubstitutionBelow = 0xED21,
     SMUFL_ED40_articSoftAccentAbove = 0xED40,
     SMUFL_ED41_articSoftAccentBelow = 0xED41,
     SMUFL_EE90_mensuralProportion5 = 0xEE90,
@@ -675,7 +677,7 @@ enum {
 };
 
 /** The number of glyphs for verification **/
-#define SMUFL_COUNT 650
+#define SMUFL_COUNT 652
 
 } // namespace vrv
 

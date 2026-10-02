@@ -10701,13 +10701,9 @@ void HumdrumInput::addFingeringsForMeasure(int startline, int endline)
                 bool slotAbove = aboveQ;
                 if (token->getLayoutParameter("FING", "a", k) == "true") slotAbove = true;
                 if (token->getLayoutParameter("FING", "b", k) == "true") slotAbove = false;
-                std::vector<std::string> roles;
-                hre.split(roles, nums[k], "/");
-                for (int n = 0; n < (int)roles.size(); ++n) {
-                    int role = slotAbove ? (int)roles.size() - n - 1 : n;
-                    insertFingerNumberInMeasure(roles[role], staffindex, token, maxstaff, slotAbove, k,
-                        (int)nums.size(), roles.size() > 1 ? role : -1);
-                }
+                std::string text = nums[k];
+                text.erase(std::remove(text.begin(), text.end(), '/'), text.end());
+                insertFingerNumberInMeasure(text, staffindex, token, maxstaff, slotAbove, k, (int)nums.size());
             }
         }
     }
@@ -10719,7 +10715,7 @@ void HumdrumInput::addFingeringsForMeasure(int startline, int endline)
 //
 
 void HumdrumInput::insertFingerNumberInMeasure(
-    const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ, int index, int count, int role)
+    const std::string &text, int staffindex, hum::HTp token, int maxstaff, bool aboveQ, int index, int count)
 {
 
     Fing *fing = new Fing();
@@ -10789,7 +10785,6 @@ void HumdrumInput::insertFingerNumberInMeasure(
     }
     addChildMeasureOrSection(fing);
     setLocationId(fing, token, count > 1 ? index : -1);
-    if (role >= 0) fing->SetID(fing->GetID() + "N" + to_string(role + 1));
 
     // Previously used @tstamp, now use @startid of note/chord;
     // hum::HumNum tstamp = getMeasureTstamp(token, xstaffindex);

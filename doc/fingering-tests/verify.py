@@ -108,7 +108,7 @@ class CrossStaffTests(unittest.TestCase):
 
 
 class EngravingTests(unittest.TestCase):
-    def test_entire_stack_is_between_note_and_ornament_on_each_side(self):
+    def test_horizontal_sequence_is_between_note_and_ornament_on_each_side(self):
         for marker, kind in [('T', 'trill'), ('M', 'mordent'), ('sSS', 'turn')]:
             for side, comment, sign in [('above', 'a', '>'), ('below', 'b', '<')]:
                 with self.subTest(ornament=kind, side=side):
@@ -117,27 +117,26 @@ class EngravingTests(unittest.TestCase):
                               + '\n!\t!LO:FING:' + comment + ':n=1\n1d' + marker + sign
                               + ' 1f\t2/1/2/1 .\n==\t==\n*-\t*-\n')
                     mei = render(source)
-                    self.assertEqual([(f.get('startid'), f.get('place')) for f in fingerings(mei)],
-                                     [('#note-L6F1S1', side)] * 4)
+                    self.assertEqual([(f.get(XML_ID), f.get('startid'), f.get('place'), ''.join(f.itertext()).strip())
+                                      for f in fingerings(mei)],
+                                     [('fing-L6F2S1', '#note-L6F1S1', side, '2121')])
                     svg = render(source, 'svg-bounds')
                     groups = [e for e in svg.iter() if e.get('class') == 'fing']
-                    self.assertEqual(len(groups), 4)
-                    texts = [g.find('.//' + SVG + 'text') for g in groups]
-                    self.assertEqual([''.join(t.itertext()).strip() for t in sorted(texts, key=lambda t: float(t.get('y')))],
-                                     ['2', '1', '2', '1'])
-                    stack = [vertical_bounds(group) for group in groups]
-                    stack_top = min(top for top, _ in stack)
-                    stack_bottom = max(bottom for _, bottom in stack)
+                    self.assertEqual(len(groups), 1)
+                    texts = groups[0].findall('.//' + SVG + 'text')
+                    self.assertEqual(len(texts), 1, 'All sequence digits share one text line')
+                    self.assertEqual(''.join(texts[0].itertext()).strip(), '2121')
+                    sequence_top, sequence_bottom = vertical_bounds(groups[0])
                     ornament = next(e for e in svg.iter() if e.get('class') == kind)
                     ornament_top, ornament_bottom = vertical_bounds(ornament)
                     note = next(e for e in svg.iter() if e.get('id') == 'note-L6F1S1')
                     note_top, note_bottom = vertical_bounds(note)
                     if side == 'above':
-                        self.assertLess(ornament_bottom, stack_top)
-                        self.assertLess(stack_bottom, note_top)
+                        self.assertLess(ornament_bottom, sequence_top)
+                        self.assertLess(sequence_bottom, note_top)
                     else:
-                        self.assertLess(note_bottom, stack_top)
-                        self.assertLess(stack_bottom, ornament_top)
+                        self.assertLess(note_bottom, sequence_top)
+                        self.assertLess(sequence_bottom, ornament_top)
 
     def test_substitution_arcs_above_and_below(self):
         source = '**kern\t**fing\n*\t*above\n4c\t3-4\n*\t*below\n4d\t2-1\n==\t==\n*-\t*-\n'
@@ -159,32 +158,38 @@ class EngravingTests(unittest.TestCase):
             glyph = next(e for e in svg.iter() if e.get('id') == reference[1:])
             self.assertIsNotNone(glyph.find(SVG + 'path'))
 
-    def test_role_stack_uses_one_chord_slot_and_top_to_bottom_order(self):
+    def test_roles_are_adjacent_digits_in_one_chord_slot(self):
         for placement in ['above', 'below']:
-            with self.subTest(placement=placement):
-                source = '**kern\t**fing\n*\t*' + placement + '\n4cT 4e\t4/3/2 .\n==\t==\n*-\t*-\n'
-                root = render(source)
-                fings = fingerings(root)
-                self.assertEqual(sorted((f.get(XML_ID), f.get('startid'), ''.join(f.itertext()).strip()) for f in fings),
-                                 [('fing-L3F2S1N1', '#note-L3F1S1', '4'),
-                                  ('fing-L3F2S1N2', '#note-L3F1S1', '3'),
-                                  ('fing-L3F2S1N3', '#note-L3F1S1', '2')])
-                svg = render(source, 'svg')
-                groups = [e for e in svg.iter() if e.get('class') == 'fing']
-                texts = [g.find('.//' + SVG + 'text') for g in groups]
-                self.assertEqual([''.join(t.itertext()).strip() for t in sorted(texts, key=lambda t: float(t.get('y')))],
-                                 ['4', '3', '2'])
+            for encoded, label in [('2/1', '21'), ('4/3/2', '432'), ('2/1/2/1', '2121')]:
+                with self.subTest(placement=placement, encoded=encoded):
+                    source = ('**kern\t**fing\n*\t*' + placement
+                              + '\n4cT 4e\t' + encoded + ' .\n==\t==\n*-\t*-\n')
+                    root = render(source)
+                    self.assertEqual([(f.get(XML_ID), f.get('startid'), ''.join(f.itertext()).strip())
+                                      for f in fingerings(root)],
+                                     [('fing-L3F2S1', '#note-L3F1S1', label)])
+                    svg = render(source, 'svg-bounds')
+                    group = next(e for e in svg.iter() if e.get('class') == 'fing')
+                    texts = group.findall('.//' + SVG + 'text')
+                    self.assertEqual(len(texts), 1)
+                    self.assertEqual(''.join(texts[0].itertext()).strip(), label)
+                    reference = render(source.replace(encoded, label), 'svg-bounds')
+                    reference_group = next(e for e in reference.iter() if e.get('class') == 'fing')
+                    bounds = [(e.get('x'), e.get('y'), e.get('width'), e.get('height'))
+                              for e in group.findall('.//' + SVG + 'rect')]
+                    reference_bounds = [(e.get('x'), e.get('y'), e.get('width'), e.get('height'))
+                                        for e in reference_group.findall('.//' + SVG + 'rect')]
+                    self.assertTrue(bounds)
+                    self.assertEqual(bounds, reference_bounds)
 
 
 class PlacementTests(unittest.TestCase):
-    def test_layout_comment_places_each_chord_slot_and_its_role_stack(self):
+    def test_layout_comment_places_each_chord_slot_and_its_role_sequence(self):
         source = '**kern\t**fing\n*\t*above\n!\t!LO:FING:b:n=1\n!\t!LO:FING:a:n=2\n4c 4eT\t1 4/3/2\n==\t==\n*-\t*-\n'
         root = render(source)
         self.assertEqual(sorted((f.get('startid'), f.get('place'), ''.join(f.itertext()).strip()) for f in fingerings(root)),
                          [('#note-L5F1S1', 'below', '1'),
-                          ('#note-L5F1S2', 'above', '2'),
-                          ('#note-L5F1S2', 'above', '3'),
-                          ('#note-L5F1S2', 'above', '4')])
+                          ('#note-L5F1S2', 'above', '432')])
 
     def test_layout_comment_without_slot_applies_to_whole_token(self):
         source = '**kern\t**fing\n!\t!LO:FING:b\n4c 4e\t1 3\n==\t==\n*-\t*-\n'

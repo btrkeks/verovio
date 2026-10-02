@@ -24,18 +24,20 @@ Generated engraving also accepts these forms within one chord slot:
 - `3-4` draws two digits joined by a substitution arc. The importer emits a
   SMuFL symbol in MEI. `DrawFing` draws its Bravura outline directly into the
   SVG, with no extra text font required.
-- `4/3/2` draws an ornament stack in top-to-bottom order. Every component
-  keeps the slot's note anchor and receives a distinct XML ID.
+- `2/1` draws adjacent ornament fingering digits as `21` on one line.
+  A longer sequence such as `2/1/2/1` draws `2121`. The entire label keeps
+  one XML ID and the slot's note anchor.
 
 A local layout comment in the `**fing` field places the following data token:
 `!LO:FING:a` means above and `!LO:FING:b` means below. An optional `:n=2`
-selects the second chord slot. Each stack in that slot follows the same
+selects the second chord slot. Each sequence in that slot follows the same
 placement. The comments override `*above` and `*below` for that data token.
 
-Fingering stacks sit between the note and its ornament sign. The floating
+Ornament fingerings sit between the note and its ornament sign. The floating
 positioning pass places fingerings before ornaments, so the sign clears the
-full stack on either side of the staff. The regression runner's `svg-bounds`
-mode exposes glyph bounds to verify this spacing, including every digit.
+full horizontal label on either side of the staff. The regression runner's
+`svg-bounds` mode checks the label against adjacent literal text and verifies
+that its glyph bounds clear both the note and the ornament sign.
 
 The two arc paths and their bounds come from the bundled original Bravura SVG
 under `fonts/Bravura`. `fonts/supported.xml` includes ED20 and ED21, and

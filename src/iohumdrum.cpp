@@ -31961,8 +31961,8 @@ bool HumdrumInput::analyzeBreaks(hum::HumdrumFile &infile)
 std::vector<int> HumdrumInput::analyzeMultiRest(hum::HumdrumFile &infile)
 {
 
-    if (m_mens) {
-        // Do not calculate multirests for mensural music
+    if (m_mens || !m_doc->GetOptions()->m_humMultiRest.GetValue()) {
+        // Do not calculate multirests for mensural music or when disabled
         std::vector<int> output(infile.getLineCount(), 0);
         return output;
     }

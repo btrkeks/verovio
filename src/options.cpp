@@ -1036,6 +1036,11 @@ Options::Options()
     m_header.Init(HEADER_auto, &Option::s_header);
     this->Register(&m_header, "header", &m_general);
 
+    m_humMultiRest.SetInfo(
+        "Humdrum multi rest", "Group consecutive whole-measure rests into multiRest when importing from Humdrum");
+    m_humMultiRest.Init(true);
+    this->Register(&m_humMultiRest, "humMultiRest", &m_general);
+
     m_humType.SetInfo("Humdrum type", "Include type attributes when importing from Humdrum");
     m_humType.Init(false);
     this->Register(&m_humType, "humType", &m_general);

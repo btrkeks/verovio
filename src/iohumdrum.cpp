@@ -768,6 +768,12 @@ bool HumdrumInput::convertHumdrum()
         scordatura.run(infile);
     }
 
+    // Rhythm analysis also reads the RDF signifiers, such as the kern link
+    // signifier that analyzeSlurs() needs. analyzeMultiRest() triggers it
+    // lazily but returns early when humMultiRest is off.
+    if (!infile.isRhythmAnalyzed()) {
+        infile.analyzeRhythmStructure();
+    }
     m_multirest = analyzeMultiRest(infile);
     m_breaks = analyzeBreaks(infile);
     analyzeVerseColor(infile);

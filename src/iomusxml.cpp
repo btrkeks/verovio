@@ -3518,30 +3518,6 @@ void MusicXmlInput::ReadMusicXmlNote(
             }
         }
 
-        // slurs
-        pugi::xpath_node_set slurs = node.select_nodes("notations/slur");
-        for (pugi::xpath_node_set::const_iterator it = slurs.begin(); it != slurs.end(); ++it) {
-            pugi::xml_node slur = it->node();
-            short int slurNumber = slur.attribute("number").as_int();
-            slurNumber = (slurNumber < 1) ? 1 : slurNumber;
-            const curvature_CURVEDIR dir = InferCurvedir(slur);
-            if (HasAttributeWithValue(slur, "type", "stop")) {
-                this->CloseSlur(measure, slurNumber, note, dir);
-            }
-            else if (HasAttributeWithValue(slur, "type", "start")) {
-                Slur *meiSlur = new Slur();
-                // color
-                meiSlur->SetColor(slur.attribute("color").as_string());
-                // lineform
-                meiSlur->SetLform(meiSlur->AttLineRendBase::StrToLineform(slur.attribute("line-type").as_string()));
-                if (slur.attribute("id")) meiSlur->SetID(slur.attribute("id").as_string());
-                meiSlur->SetStartid("#" + note->GetID());
-                // add it to the stack
-                m_controlElements.push_back({ measure, meiSlur });
-                this->OpenSlur(measure, slurNumber, meiSlur, dir);
-            }
-        }
-
         // ties
         this->ReadMusicXmlTies(node, layer, note, measure);
 
@@ -3681,6 +3657,31 @@ void MusicXmlInput::ReadMusicXmlNote(
     if (!nextIsChord) m_durTotal += duration;
 
     m_ID = "#" + element->GetID();
+
+    // slurs
+    LayerElement *slurHost = note ? note : element;
+    pugi::xpath_node_set slurs = node.select_nodes("notations/slur");
+    for (pugi::xpath_node_set::const_iterator it = slurs.begin(); it != slurs.end(); ++it) {
+        pugi::xml_node slur = it->node();
+        short int slurNumber = slur.attribute("number").as_int();
+        slurNumber = (slurNumber < 1) ? 1 : slurNumber;
+        const curvature_CURVEDIR dir = InferCurvedir(slur);
+        if (HasAttributeWithValue(slur, "type", "stop")) {
+            this->CloseSlur(measure, slurNumber, slurHost, dir);
+        }
+        else if (HasAttributeWithValue(slur, "type", "start")) {
+            Slur *meiSlur = new Slur();
+            // color
+            meiSlur->SetColor(slur.attribute("color").as_string());
+            // lineform
+            meiSlur->SetLform(meiSlur->AttLineRendBase::StrToLineform(slur.attribute("line-type").as_string()));
+            if (slur.attribute("id")) meiSlur->SetID(slur.attribute("id").as_string());
+            meiSlur->SetStartid("#" + slurHost->GetID());
+            // add it to the stack
+            m_controlElements.push_back({ measure, meiSlur });
+            this->OpenSlur(measure, slurNumber, meiSlur, dir);
+        }
+    }
 
     // breath marks
     pugi::xpath_node xmlBreath = notations.node().select_node("articulations/breath-mark");

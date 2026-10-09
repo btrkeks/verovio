@@ -12993,6 +12993,38 @@ void HumdrumInput::setBeamDirection(int direction, const std::vector<humaux::Hum
 
 //////////////////////////////
 //
+// getTupletRatio -- The written-to-sounding ratio of the tuplet a beam/tuplet group sits in.
+//
+
+static hum::HumNum getTupletRatio(const humaux::HumdrumBeamAndTuplet &tg)
+{
+    if ((tg.num > 0) && (tg.numbase > 0)) {
+        return hum::HumNum(tg.num, tg.numbase);
+    }
+    return 1;
+}
+
+//////////////////////////////
+//
+// getTremoloRecip -- Spell the recip of a note that stands for a tremolo of the given
+//    sounding duration.  convertRhythm scales a recip by the open tuplet, so inside a
+//    tuplet the recip is the written value scaled back by the tuplet ratio: three
+//    triplet eighths give "6." (a dotted quarter as written), not the equal-duration "4".
+//
+
+static std::string getTremoloRecip(hum::HumNum duration, const humaux::HumdrumBeamAndTuplet &tg)
+{
+    hum::HumNum ratio = getTupletRatio(tg);
+    if (ratio == 1) {
+        return hum::Convert::durationToRecip(duration);
+    }
+    std::string written = hum::Convert::durationToRecip(duration * ratio);
+    int dots = (int)std::count(written.begin(), written.end(), '.');
+    return hum::Convert::durationToRecip(hum::Convert::recipToDurationNoDots(written) / ratio) + std::string(dots, '.');
+}
+
+//////////////////////////////
+//
 // HumdrumInput::checkForTremolo --  Check to see if a beamed group of notes
 //    can be converted into a tremolo. (Decision to convert to tremolo is done
 //    outside of this function and is activated by the *tremolo tandem interpretation).
@@ -13090,18 +13122,7 @@ bool HumdrumInput::checkForTremolo(
     if (allpequal) {
         // beam group should be converted into a <bTrem> tremolo
         hum::HumNum tdur = duration * (int)notes.size();
-        std::string recip = hum::Convert::durationToRecip(tdur);
-        const humaux::HumdrumBeamAndTuplet &tg = tgs.at(startindex);
-        if ((tg.num > 0) && (tg.numbase > 0) && (tg.num != tg.numbase)) {
-            // The merged note is drawn inside the tuplet, so spell its recip as the
-            // written value scaled back by the tuplet ratio (dotted triplet "6." for
-            // three triplet eighths rather than the equal-duration "4").
-            hum::HumNum ratio(tg.num, tg.numbase);
-            std::string written = hum::Convert::durationToRecip(tdur * ratio);
-            int dots = (int)std::count(written.begin(), written.end(), '.');
-            recip = hum::Convert::durationToRecip(hum::Convert::recipToDurationNoDots(written) / ratio);
-            recip += std::string(dots, '.');
-        }
+        std::string recip = getTremoloRecip(tdur, tgs.at(startindex));
 
         int slashes = log(duration.getFloat()) / log(2.0);
         int noteslash = log(tdur.getFloat()) / log(2.0);
@@ -13192,7 +13213,7 @@ bool HumdrumInput::checkForTremolo(
 
         for (int i = 0; i < (int)groupings.size(); ++i) {
             hum::HumNum tdur = duration * (int)groupings[i].size();
-            std::string recip = hum::Convert::durationToRecip(tdur);
+            std::string recip = getTremoloRecip(tdur, tgs.at(startindex));
             int slashcount = -(int)(log2(duration.getFloat() / tdur.getFloat()));
             groupings[i][0]->setValue("auto", "tremolo", "1");
             groupings[i][0]->setValue("auto", "slashes", slashcount);
@@ -13237,8 +13258,8 @@ bool HumdrumInput::checkForTremolo(
     // If got to this point, create an fTrem.
 
     hum::HumNum tdur = duration * (int)notes.size();
-    std::string recip = hum::Convert::durationToRecip(tdur);
-    std::string unitrecip = hum::Convert::durationToRecip(duration);
+    std::string recip = getTremoloRecip(tdur, tgs.at(startindex));
+    std::string unitrecip = hum::Convert::durationToRecip(duration * getTupletRatio(tgs.at(startindex)));
 
     // Eventually also allow calculating of beam.float
     // (mostly for styling half note tremolos).

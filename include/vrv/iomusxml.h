@@ -67,27 +67,27 @@ class Trill;
 namespace musicxml {
 
     struct OpenSlur {
-        OpenSlur(const std::string &measureNum, short int number, curvature_CURVEDIR curvedir)
+        OpenSlur(Measure *measure, short int number, curvature_CURVEDIR curvedir)
         {
-            m_measureNum = measureNum;
+            m_measure = measure;
             m_number = number;
             m_curvedir = curvedir;
         }
 
-        std::string m_measureNum;
+        Measure *m_measure;
         short int m_number;
         curvature_CURVEDIR m_curvedir;
     };
 
     struct CloseSlur {
-        CloseSlur(const std::string &measureNum, short int number, curvature_CURVEDIR curvedir)
+        CloseSlur(Measure *measure, short int number, curvature_CURVEDIR curvedir)
         {
-            m_measureNum = measureNum;
+            m_measure = measure;
             m_number = number;
             m_curvedir = curvedir;
         }
 
-        std::string m_measureNum;
+        Measure *m_measure;
         short int m_number;
         curvature_CURVEDIR m_curvedir;
     };
@@ -224,10 +224,8 @@ namespace musicxml {
     };
 
     struct ClefChange {
-        ClefChange(const std::string &measureNum, Staff *staff, Layer *layer, Clef *clef, const int &scoreOnset,
-            bool afterBarline)
+        ClefChange(Staff *staff, Layer *layer, Clef *clef, const int &scoreOnset, bool afterBarline)
         {
-            m_measureNum = measureNum;
             m_staff = staff;
             m_layer = layer;
             m_clef = clef;
@@ -235,7 +233,6 @@ namespace musicxml {
             m_afterBarline = afterBarline;
         }
 
-        std::string m_measureNum;
         Staff *m_staff;
         Layer *m_layer;
         Clef *m_clef;
@@ -361,23 +358,21 @@ private:
      * @name Methods for reading the content of a MusicXML measure.
      */
     ///@{
-    void ReadMusicXmlAttributes(pugi::xml_node, Section *section, Measure *measure, const std::string &measureNum);
-    void ReadMusicXmlBackup(pugi::xml_node, Measure *measure, const std::string &measureNum);
-    void ReadMusicXmlBarLine(pugi::xml_node, Measure *measure, const std::string &measureNum);
-    void ReadMusicXmlDirection(
-        pugi::xml_node, Measure *measure, const std::string &measureNum, const short int staffOffset, Section *section);
-    void ReadMusicXmlFigures(pugi::xml_node, Measure *measure, const std::string &measureNum);
-    void ReadMusicXmlForward(pugi::xml_node, Measure *measure, const std::string &measureNum);
-    void ReadMusicXmlHarmony(pugi::xml_node, Measure *measure, const std::string &measureNum);
-    void ReadMusicXmlNote(
-        pugi::xml_node, Measure *measure, const std::string &measureNum, const short int staffOffset, Section *section);
+    void ReadMusicXmlAttributes(pugi::xml_node, Section *section, Measure *measure);
+    void ReadMusicXmlBackup(pugi::xml_node, Measure *measure);
+    void ReadMusicXmlBarLine(pugi::xml_node, Measure *measure);
+    void ReadMusicXmlDirection(pugi::xml_node, Measure *measure, const short int staffOffset, Section *section);
+    void ReadMusicXmlFigures(pugi::xml_node, Measure *measure);
+    void ReadMusicXmlForward(pugi::xml_node, Measure *measure);
+    void ReadMusicXmlHarmony(pugi::xml_node, Measure *measure);
+    void ReadMusicXmlNote(pugi::xml_node, Measure *measure, const short int staffOffset, Section *section);
     void ReadMusicXmlPrint(pugi::xml_node, Section *section);
     void ReadMusicXmlSound(pugi::xml_node, Measure *measure, Section *section);
     bool ReadMusicXmlBeamsAndTuplets(const pugi::xml_node &node, Layer *layer, bool isChord);
     void ReadMusicXmlTupletStart(const pugi::xml_node &node, const pugi::xml_node &tupletStart, Layer *layer);
     void ReadMusicXmlBeamStart(const pugi::xml_node &node, const pugi::xml_node &beamStart, Layer *layer);
     void ReadMusicXMLMeterSig(const pugi::xml_node &node, Object *parent);
-    void ReadMusicXmlTies(const pugi::xml_node &node, Layer *layer, Note *note, const std::string &measureNum);
+    void ReadMusicXmlTies(const pugi::xml_node &node, Layer *layer, Note *note, Measure *measure);
     ///@}
 
     /**
@@ -711,7 +706,7 @@ private:
      * The stack of floating elements (tie, slur, etc.) to be added at the
      * end of each measure
      */
-    std::vector<std::pair<std::string, ControlElement *>> m_controlElements;
+    std::vector<std::pair<Measure *, ControlElement *>> m_controlElements;
     /* stack of clef changes to be inserted to all layers of a given staff */
     std::deque<musicxml::ClefChange> m_clefChangeQueue;
     /* stack of new arpeggios that get more notes added. */

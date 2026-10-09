@@ -12780,44 +12780,41 @@ bool HumdrumInput::convertMeasureStaff(int track, int startline, int endline, in
 void HumdrumInput::checkClefBufferForSameAs()
 {
     for (int i = 0; i < (int)m_clef_buffer.size(); ++i) {
-        if (std::get<0>(m_clef_buffer[i])) {
-            suppressBufferedClef(i);
-        }
+        suppressBufferedClef(i);
     }
 }
 
 //////////////////////////////
 //
-// HumdrumInput::suppressBufferedClef -- Mark the given class as "sameas" provided that
-//     there is another clef at the same timestamp that is not also a "sameas" clef.
-//     The input index is the position of the bad clef in the buffered list for the
-//     staff measure.
+// HumdrumInput::suppressBufferedClef -- Mark the given clef as "sameas" when another
+//     layer of the staff measure has the same clef at the same timestamp, so that the
+//     staff draws it once.  The clef that is drawn is the first one that is not bad,
+//     or the first one if all are bad.  The input index is the position of the clef in
+//     the buffered list for the staff measure.
 //
 
 void HumdrumInput::suppressBufferedClef(int index)
 {
     hum::HumNum target = std::get<1>(m_clef_buffer.at(index));
-    Clef *goodclef = NULL;
-    for (int i = 0; i < (int)m_clef_buffer.size(); ++i) {
-        if (std::get<0>(m_clef_buffer[i])) {
-            // don't look at bad clefs
+    Clef *clef = std::get<2>(m_clef_buffer.at(index));
+    Clef *drawn = NULL;
+    for (const auto &[bad, timestamp, other] : m_clef_buffer) {
+        if ((timestamp != target) || (other->GetShape() != clef->GetShape())
+            || (other->GetLine() != clef->GetLine()) || (other->GetDis() != clef->GetDis())
+            || (other->GetDisPlace() != clef->GetDisPlace())) {
             continue;
         }
-        if (target == std::get<1>(m_clef_buffer[i])) {
-            goodclef = std::get<2>(m_clef_buffer[i]);
+        if (!bad) {
+            drawn = other;
             break;
         }
+        if (!drawn) {
+            drawn = other;
+        }
     }
-    if (!goodclef) {
-        return;
+    if (drawn != clef) {
+        clef->SetSameas("#" + drawn->GetID());
     }
-
-    Clef *badclef = std::get<2>(m_clef_buffer.at(index));
-    if (!badclef) {
-        return;
-    }
-
-    badclef->SetSameas("#" + goodclef->GetID());
 }
 
 //////////////////////////////
@@ -14245,11 +14242,6 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             }
             else if (forceClefChange || notAtStart) {
                 if (token->isClef()) {
-                    int subtrack = token->getSubtrack();
-                    if (subtrack) {
-                        subtrack--;
-                    }
-
                     hum::HumNum durFromStart = token->getDurationFromStart();
                     hum::HumNum durFromBarline = token->getDurationFromBarline();
 
@@ -14266,15 +14258,6 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
                     if (clef) {
                         if (token->find("yy") != std::string::npos) {
                             clef->SetVisible(BOOLEAN_false);
-                        }
-                        setLocationId(clef, token);
-                        int diff = layerindex - subtrack;
-                        if (diff > 0) {
-                            std::string letter;
-                            letter.push_back('a' + diff);
-                            std::string id = clef->GetID();
-                            id += letter;
-                            clef->SetID(id);
                         }
                         if (restSplitToken != NULL) {
                             // Add the second part of a split invisible rest (or
@@ -22404,9 +22387,8 @@ Clef *HumdrumInput::insertClefElement(
     Clef *clef = new Clef();
 
     bool sameas = false;
-    hum::HumNum clefpos = -1;
+    hum::HumNum clefpos = token->getDurationFromBarline();
     if (lastnote) {
-        clefpos = token->getDurationFromBarline();
         hum::HumNum notepos = lastnote->getDurationFromBarline();
         hum::HumNum duration = hum::Convert::recipToDuration(lastnote);
         if (notepos + duration != clefpos) {
@@ -22425,6 +22407,11 @@ Clef *HumdrumInput::insertClefElement(
 
     setClefColorOrEditorial(token, clef, elements, pointers);
     setLocationId(clef, token);
+    int diff = m_currentlayer - std::max(token->getSubtrack(), 1);
+    if (diff > 0) {
+        // A copy of a clef from another layer of the staff needs its own ID.
+        clef->SetID(clef->GetID() + (char)('a' + diff));
+    }
 
     std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
     ss.at(m_currentstaff - 1).last_clef = *token;

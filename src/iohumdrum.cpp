@@ -2230,8 +2230,8 @@ Tie *HumdrumInput::addHangingTieToNextItem(hum::HTp token, int subindex, hum::Hu
 void HumdrumInput::processHangingTieEnd(
     Note *note, hum::HTp token, const std::string &tstring, int subindex, hum::HumNum meterunit)
 {
-    // Ignore tie when token is suppressed with yy signifier
-    if (token->find("yy") != std::string::npos) {
+    // Ignore tie when note is suppressed with yy signifier
+    if (tstring.find("yy") != std::string::npos) {
         return;
     }
 
@@ -29656,8 +29656,8 @@ void HumdrumInput::addTrill(Object *linked, hum::HTp token)
 
 void HumdrumInput::processTieStart(Note *note, hum::HTp token, const std::string &tstring, int subindex)
 {
-    // Ignore tie when token is suppressed with yy signifier
-    if (token->find("yy") != std::string::npos) {
+    // Ignore tie when note is suppressed with yy signifier
+    if (tstring.find("yy") != std::string::npos) {
         return;
     }
     if (token->isMensLike()) {

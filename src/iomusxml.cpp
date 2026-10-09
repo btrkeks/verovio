@@ -3017,7 +3017,14 @@ void MusicXmlInput::ReadMusicXmlNote(
         return;
     }
 
-    const pugi::xpath_node notations = node.select_node("notations[not(@print-object='no')]");
+    // A note may carry several <notations>; the readers below look only at the first one
+    const pugi::xpath_node_set visibleNotations = node.select_nodes("notations[not(@print-object='no')]");
+    for (size_t i = 1; i < visibleNotations.size(); ++i) {
+        pugi::xml_node extra = visibleNotations[i].node();
+        while (pugi::xml_node child = extra.first_child()) visibleNotations[0].node().append_move(child);
+        node.remove_child(extra);
+    }
+    const pugi::xpath_node notations = visibleNotations.first();
 
     const bool cue = (node.child("cue") || node.select_node("type[@size='cue']")) ? true : false;
     pugi::xml_node grace = node.child("grace");

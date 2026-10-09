@@ -3667,7 +3667,9 @@ void MusicXmlInput::ReadMusicXmlNote(
 
     // slurs
     LayerElement *slurHost = note ? note : element;
-    pugi::xpath_node_set slurs = node.select_nodes("notations/slur");
+    // A hidden rest without <type> becomes an mSpace and leaves `element` outside the layer
+    pugi::xpath_node_set slurs;
+    if (slurHost->GetParent()) slurs = node.select_nodes("notations/slur");
     for (pugi::xpath_node_set::const_iterator it = slurs.begin(); it != slurs.end(); ++it) {
         pugi::xml_node slur = it->node();
         short int slurNumber = slur.attribute("number").as_int();

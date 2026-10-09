@@ -432,6 +432,12 @@ private:
     Layer *SelectLayer(short int staffNb, Measure *measure);
 
     /*
+     * Returns the staff each voice of a part is drawn on most.
+     * Voices that open streams on different staves within one measure have none.
+     */
+    std::map<short int, short int> FindVoiceHomeStaves(pugi::xml_node part) const;
+
+    /*
      * Returns the layer with \@n=layerNb on the staff.
      * Creates the layer if not found.
      */
@@ -665,6 +671,8 @@ private:
     /* To remember current layer to properly handle layers/staves/cross-staff elements */
     Layer *m_currentLayer = NULL;
     bool m_isLayerInitialized = false;
+    /* The home staff of each voice in the current part */
+    std::map<short int, short int> m_voiceHomeStaves;
     /* The stack for open slurs */
     std::vector<std::pair<Slur *, musicxml::OpenSlur>> m_slurStack;
     /* The stack for slur stops that might come before the slur has been opened */

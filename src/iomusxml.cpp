@@ -471,23 +471,18 @@ Layer *MusicXmlInput::SelectLayer(pugi::xml_node node, Measure *measure)
         layerNum = 1;
     }
 
-    // If not initialized and layer is not set - get first layer in the first staff
-    if (!m_currentLayer) {
-        Staff *staff = vrv_cast<Staff *>(measure->GetChild(0, STAFF));
-        assert(staff);
-        m_currentLayer = SelectLayer(layerNum, staff);
-        m_isLayerInitialized = true;
-        return m_currentLayer;
+    short int staffNum = 1;
+    if (m_voiceHomeStaves.contains(layerNum)) {
+        staffNum = m_voiceHomeStaves.at(layerNum);
     }
-
-    // if not, take staff info of node element
-    short int staffNum = (node.child("staff")) ? node.child("staff").text().as_int() : 1;
+    else if (m_currentLayer) {
+        staffNum = (node.child("staff")) ? node.child("staff").text().as_int() : 1;
+    }
     if ((staffNum < 1) || (staffNum > measure->GetStaffCount())) {
         LogWarning("MusicXML import: Staff %d cannot be found", staffNum);
         staffNum = 1;
     }
-    staffNum--;
-    Staff *staff = vrv_cast<Staff *>(measure->GetChild(staffNum, STAFF));
+    Staff *staff = vrv_cast<Staff *>(measure->GetChild(staffNum - 1, STAFF));
     assert(staff);
     m_currentLayer = SelectLayer(layerNum, staff);
 
@@ -502,6 +497,38 @@ Layer *MusicXmlInput::SelectLayer(short int staffNum, Measure *measure)
     assert(staff);
     // layer -1 means the first one
     return SelectLayer(-1, staff);
+}
+
+std::map<short int, short int> MusicXmlInput::FindVoiceHomeStaves(pugi::xml_node part) const
+{
+    std::map<short int, std::map<short int, int>> noteCounts;
+    std::set<short int> splitVoices;
+    for (pugi::xml_node measure : part.children("measure")) {
+        std::map<short int, std::set<short int>> streamStaves;
+        std::set<short int> streamVoices;
+        for (pugi::xml_node child : measure) {
+            if (IsElement(child, "backup")) streamVoices.clear();
+            if (!IsElement(child, "note")) continue;
+            const short int voice = std::max(child.child("voice").text().as_int(1), 1);
+            const short int staff = child.child("staff").text().as_int(1);
+            ++noteCounts[voice][staff];
+            if (streamVoices.insert(voice).second) streamStaves[voice].insert(staff);
+        }
+        for (const auto &[voice, staves] : streamStaves) {
+            if (staves.size() > 1) splitVoices.insert(voice);
+        }
+    }
+
+    std::map<short int, short int> homes;
+    for (const auto &[voice, counts] : noteCounts) {
+        if (splitVoices.contains(voice)) continue;
+        const auto best = std::max_element(
+            counts.begin(), counts.end(), [](const auto &a, const auto &b) { return a.second < b.second; });
+        const auto ties = std::count_if(
+            counts.begin(), counts.end(), [&best](const auto &count) { return count.second == best->second; });
+        if (ties == 1) homes[voice] = best->first;
+    }
+    return homes;
 }
 
 Layer *MusicXmlInput::SelectLayer(short int layerNum, Staff *staff)
@@ -1813,6 +1840,8 @@ bool MusicXmlInput::ReadMusicXmlPart(pugi::xml_node node, Section *section, shor
         LogWarning("MusicXML import: No measure to load");
         return false;
     }
+
+    m_voiceHomeStaves = this->FindVoiceHomeStaves(node);
 
     int i = 0;
     for (pugi::xpath_node_set::const_iterator it = measures.begin(); it != measures.end(); ++it) {

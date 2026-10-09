@@ -282,6 +282,15 @@ void MusicXmlInput::InsertClefToLayer(Staff *staff, Layer *layer, Clef *clef, in
     // Since AddClef handles #sameas clef only for the future layers, we need to check any previous existing layers for
     // the same staff to see if we need to insert #sameas clef to them.
     ListOfObjects staffLayers = staff->FindAllDescendantsByType(LAYER, false);
+    // The clef is drawn before the next onset at its time; a layer still sounding a note there cannot draw it.
+    const auto hasOnsetAt = [this, scoreOnset](Object *candidate) {
+        const auto times = m_layerTimes.find(vrv_cast<Layer *>(candidate));
+        return times != m_layerTimes.end() && times->second.contains(scoreOnset);
+    };
+    if (scoreOnset && !hasOnsetAt(layer)) {
+        const auto owner = std::find_if(staffLayers.begin(), staffLayers.end(), hasOnsetAt);
+        if (owner != staffLayers.end()) layer = vrv_cast<Layer *>(*owner);
+    }
     for (const auto &listLayer : staffLayers) {
         Layer *otherLayer = vrv_cast<Layer *>(listLayer);
         if (m_layerTimes.find(otherLayer) == m_layerTimes.end()) continue;

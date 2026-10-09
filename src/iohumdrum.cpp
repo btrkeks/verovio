@@ -13093,6 +13093,17 @@ bool HumdrumInput::checkForTremolo(
         // beam group should be converted into a <bTrem> tremolo
         hum::HumNum tdur = duration * (int)notes.size();
         std::string recip = hum::Convert::durationToRecip(tdur);
+        const humaux::HumdrumBeamAndTuplet &tg = tgs.at(startindex);
+        if ((tg.num > 0) && (tg.numbase > 0) && (tg.num != tg.numbase)) {
+            // The merged note is drawn inside the tuplet, so spell its recip as the
+            // written value scaled back by the tuplet ratio (dotted triplet "6." for
+            // three triplet eighths rather than the equal-duration "4").
+            hum::HumNum ratio(tg.num, tg.numbase);
+            std::string written = hum::Convert::durationToRecip(tdur * ratio);
+            int dots = (int)std::count(written.begin(), written.end(), '.');
+            recip = hum::Convert::durationToRecip(hum::Convert::recipToDurationNoDots(written) / ratio);
+            recip += std::string(dots, '.');
+        }
 
         int slashes = log(duration.getFloat()) / log(2.0);
         int noteslash = log(tdur.getFloat()) / log(2.0);
@@ -13339,6 +13350,10 @@ void HumdrumInput::handleGroupStarts(const std::vector<humaux::HumdrumBeamAndTup
             bool status = checkForTremolo(layerdata, tgs, layerindex);
             if (status) {
                 // beamed group converted into tremolo
+                if (tg.tupletstart) {
+                    insertTuplet(elements, pointers, tgs, layerdata, layerindex,
+                        ss[staffindex].suppress_tuplet_number, ss[staffindex].suppress_tuplet_bracket);
+                }
                 return;
             }
         }
@@ -14375,6 +14390,9 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             // should not be suppressed:
             processDynamics(token, staffindex);
             processDirections(token, staffindex);
+            if (tgs.at(i).tupletend && (elements.back() == "tuplet")) {
+                removeTuplet(elements, pointers);
+            }
             continue;
         }
 

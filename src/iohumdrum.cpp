@@ -428,6 +428,7 @@ namespace humaux {
     StaffStateVariables::StaffStateVariables()
     {
         cue_size.resize(100);
+        tremolo.resize(100);
         stem_type.resize(100);
         stem_visible.resize(100);
         clear();
@@ -444,7 +445,6 @@ namespace humaux {
         suppress_tuplet_number = false;
         suppress_tuplet_bracket = false;
         suppress_articulations = false;
-        tremolo = false;
         pedal = false;
         righthalfstem = false;
 
@@ -488,6 +488,7 @@ namespace humaux {
         verse_abbr_labels.clear();
 
         std::fill(cue_size.begin(), cue_size.end(), false);
+        std::fill(tremolo.begin(), tremolo.end(), false);
         std::fill(stem_type.begin(), stem_type.end(), 'X');
         std::fill(stem_visible.begin(), stem_visible.end(), true);
 
@@ -504,7 +505,7 @@ namespace humaux {
         out << prefix << "suppress_tuplet_number   =  " << suppress_tuplet_number << std::endl;
         out << prefix << "suppress_tuplet_bracket  =  " << suppress_tuplet_bracket << std::endl;
         out << prefix << "suppress_articulations   =  " << suppress_articulations << std::endl;
-        out << prefix << "tremolo                  =  " << tremolo << std::endl;
+        // std::vector<bool> tremolo;
         // std::vector<bool> cue_size;
         // std::vector<char> stem_type;
         // std::vector<char> stem_visible;
@@ -13342,7 +13343,7 @@ void HumdrumInput::handleGroupStarts(const std::vector<humaux::HumdrumBeamAndTup
     std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
     int staffindex = m_currentstaff - 1;
 
-    if (ss[staffindex].tremolo) {
+    if (ss[staffindex].tremolo.at(m_currentlayer)) {
         if (token->find("L") != std::string::npos) {
             bool status = checkForTremolo(layerdata, tgs, layerindex);
             if (status) {
@@ -24492,11 +24493,14 @@ void HumdrumInput::handleStaffStateVariables(hum::HTp token)
     }
 
     if (value == "*Xtremolo") {
-        ss[staffindex].tremolo = false;
+        ss[staffindex].tremolo.at(layernum) = false;
     }
     else if (value == "*tremolo") {
-        ss[staffindex].tremolo = true;
+        ss[staffindex].tremolo.at(layernum) = true;
         m_hasTremolo = true;
+    }
+    else if (value == "*^") {
+        ss[staffindex].tremolo.at(layernum + 1) = ss[staffindex].tremolo.at(layernum);
     }
 
     if (value == "*Xcue") {

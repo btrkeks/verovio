@@ -207,8 +207,9 @@ namespace humaux {
         // brackets should be displayed.
         bool suppress_tuplet_bracket;
 
-        // Used for tremolo compression
-        bool tremolo;
+        // tremolo == keeps track of whether repeated-note beam groups in the
+        // current staff/layer are compressed into tremolos.
+        std::vector<bool> tremolo;
 
         bool suppress_articulations;
 

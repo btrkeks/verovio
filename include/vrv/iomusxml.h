@@ -217,6 +217,12 @@ namespace musicxml {
         int m_visited;
     };
 
+    struct OctaveShift {
+        int m_staffN;
+        int m_time;
+        int m_octDis; // 0 for a stop
+    };
+
     struct ClefChange {
         ClefChange(const std::string &measureNum, Staff *staff, Layer *layer, Clef *clef, const int &scoreOnset,
             bool afterBarline)
@@ -492,6 +498,12 @@ private:
     ///@}
 
     /*
+     * Displace the measure's notes by the octave shift in effect at their onset on their staff.
+     * MusicXML writes voices one after another, so document order is not time order.
+     */
+    void ApplyOctaveShifts();
+
+    /*
      * @name Helper methods for rendering text elements
      */
     ///@{
@@ -618,8 +630,11 @@ private:
 public:
     //
 private:
-    /* octave offset */
+    /* octave offset per staff at the start of the current measure */
     std::vector<int> m_octDis;
+    /* the current measure's octave shifts and pitched notes (note, staff, onset) */
+    std::vector<musicxml::OctaveShift> m_octaveShifts;
+    std::vector<std::tuple<Note *, int, int>> m_measureNotes;
     /* measure repeats */
     bool m_mRpt = false;
     /* measure repeats */

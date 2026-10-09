@@ -1984,6 +1984,7 @@ bool MusicXmlInput::ReadMusicXmlMeasure(
         measure->SetMetcon(BOOLEAN_false);
     }
 
+    this->ApplyOctaveShifts();
     this->MatchTies(true);
     if (!m_tieStack.empty()) this->MatchTies(false);
     for (auto openTie : m_tieStack) {
@@ -2017,6 +2018,27 @@ bool MusicXmlInput::ReadMusicXmlMeasure(
     m_currentLayer = NULL;
 
     return true;
+}
+
+void MusicXmlInput::ApplyOctaveShifts()
+{
+    // a stop and a start at the same time leave the start in effect
+    std::stable_sort(m_octaveShifts.begin(), m_octaveShifts.end(),
+        [](const musicxml::OctaveShift &a, const musicxml::OctaveShift &b) {
+            return std::make_pair(a.m_time, a.m_octDis != 0) < std::make_pair(b.m_time, b.m_octDis != 0);
+        });
+    for (auto &[note, staffN, onset] : m_measureNotes) {
+        int octDis = m_octDis[staffN];
+        for (const musicxml::OctaveShift &shift : m_octaveShifts) {
+            if (shift.m_staffN == staffN && shift.m_time <= onset) octDis = shift.m_octDis;
+        }
+        if (octDis == 0) continue;
+        note->SetOctGes(note->GetOct());
+        note->SetOct(note->GetOct() - octDis);
+    }
+    for (const musicxml::OctaveShift &shift : m_octaveShifts) m_octDis[shift.m_staffN] = shift.m_octDis;
+    m_octaveShifts.clear();
+    m_measureNotes.clear();
 }
 
 void MusicXmlInput::MatchTies(bool matchLayers)
@@ -2609,11 +2631,11 @@ void MusicXmlInput::ReadMusicXmlDirection(
     if (xmlShift) {
         const short int staffNum = (!staffNode) ? 1 : staffNode.text().as_int() + staffOffset;
         if (HasAttributeWithValue(xmlShift, "type", "stop")) {
-            m_octDis[staffNum] = 0;
+            m_octaveShifts.push_back({ staffNum, m_durTotal, 0 });
             for (auto iter = m_controlElements.begin(); iter != m_controlElements.end(); ++iter) {
                 if (iter->second->Is(OCTAVE)) {
                     Octave *octave = dynamic_cast<Octave *>(iter->second);
-                    if (octave->HasEndid()) continue;
+                    if (octave->HasEndid() || octave->HasTstamp2()) continue;
                     std::vector<int> staffAttr = octave->GetStaff();
                     if (std::find(staffAttr.begin(), staffAttr.end(), staffNum) != staffAttr.end()) {
                         octave->SetEndid(m_ID);
@@ -2634,14 +2656,23 @@ void MusicXmlInput::ReadMusicXmlDirection(
             octave->SetN(xmlShift.attribute("number").as_string());
             const short int octDisNum = xmlShift.attribute("size") ? xmlShift.attribute("size").as_int() : 8;
             octave->SetDis(octave->AttOctaveDisplacement::StrToOctaveDis(std::to_string(octDisNum)));
-            m_octDis[staffNum] = (octDisNum + 2) / 8;
+            int octDis = (octDisNum + 2) / 8;
             if (HasAttributeWithValue(xmlShift, "type", "up")) {
                 octave->SetDisPlace(STAFFREL_basic_below);
-                m_octDis[staffNum] *= -1;
+                octDis *= -1;
             }
             else {
                 octave->SetDisPlace(STAFFREL_basic_above);
             }
+            // a later-written voice can start the shift before a stop already read
+            for (const musicxml::OctaveShift &shift : m_octaveShifts) {
+                if (shift.m_staffN == staffNum && shift.m_octDis == 0 && shift.m_time > m_durTotal) {
+                    octave->SetTstamp2(
+                        { 0, (double)shift.m_time * (double)m_meterUnit / (double)(4 * m_ppq) + 1.0 });
+                    break;
+                }
+            }
+            m_octaveShifts.push_back({ staffNum, m_durTotal, octDis });
             m_controlElements.push_back({ measureNum, octave });
             m_octaveStack.push_back(octave);
         }
@@ -3142,13 +3173,8 @@ void MusicXmlInput::ReadMusicXmlNote(
             const std::string stepStr = pitch.child("step").text().as_string();
             const int octaveNum = pitch.child("octave").text().as_int();
             if (!stepStr.empty()) note->SetPname(ConvertStepToPitchName(stepStr));
-            if (m_octDis[staff->GetN()] != 0) {
-                note->SetOct(octaveNum - m_octDis[staff->GetN()]);
-                note->SetOctGes(octaveNum);
-            }
-            else {
-                note->SetOct(octaveNum);
-            }
+            note->SetOct(octaveNum);
+            m_measureNotes.push_back({ note, staff->GetN(), m_durTotal });
 
             // adjust accidental (including glyph) based on carried-over accidentals
             // or update the carried-over accidentals with current accidental value.

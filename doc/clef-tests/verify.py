@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Assertions over public-wrapper engraving and the same Toolkit's layout model."""
 import argparse
 import sys
 
@@ -174,13 +173,17 @@ class ClefImport(unittest.TestCase):
                 name = fixture.name
                 current = model(name)
                 previous = ET.fromstring(render(name, 'mei', runner=args.baseline_runner, suffix='.baseline'))
-                tags = {M + n for n in ['note', 'rest', 'mRest', 'keySig', 'meterSig', 'pedal', 'dir', 'dynam', 'fermata', 'breath']}
+                tags = {M + n for n in ['note', 'rest', 'mRest', 'keySig', 'meterSig', 'pedal', 'dir', 'dynam', 'fermata', 'breath', 'tempo']}
                 semantic = lambda r: {e.get(ID): e.attrib for e in r.iter() if e.tag in tags}
                 self.assertEqual(semantic(current), semantic(previous))
                 now, old = observations(name), observations(name, runner=args.baseline_runner)
                 for id in semantic(current):
                     if id in old:
-                        for key in ['time', 'staff', 'layer', 'measure']: self.assertEqual(now[id][key], old[id][key])
+                        for key in ['time', 'staff', 'layer', 'measure']:
+                            if key == 'time' and name in ['empty-layer-key.krn', 'empty-layer-controls.krn'] and id in ['keysig-L10F1', 'metersig-L11F1']:
+                                self.assertEqual(Fraction(now[id][key]), Fraction(1, 4))
+                            else:
+                                self.assertEqual(now[id][key], old[id][key])
                 self.assertEqual(len(list(current.iter(M + 'measure'))), len(list(previous.iter(M + 'measure'))))
                 if name.startswith('regression-') and name != 'regression-nested.krn':
                     edges = lambda r: {e.get(ID): e.get('sameas') for e in r.iter(M + 'clef')}
@@ -193,25 +196,33 @@ class ClefImport(unittest.TestCase):
         self.assertEqual([(p.get(ID), p.get('staff'), p.get('tstamp'), p.get('dir')) for p in pedals],
                          [('pedal-L9F1', '2', '2', 'down'), ('pedal-L11F1', '2', '5', 'up')])
 
-        name = 'empty-layer-key.krn'
-        root = model(name)
-        layer = lower_layer(root)
-        keys = layer.findall(M + 'keySig')
-        self.assertEqual([key.attrib for key in keys],
-                         [{ID: 'keysig-L10F1', 'type': 'mid-measure', 'sig': '1f'}],
-                         'new empty-layer fill must preserve the existing interpretation loop')
-        svg = ET.fromstring(render(name, 'svg'))
-        key = next(g for g in svg.iter() if g.get('id') == 'keysig-L10F1')
-        self.assertEqual(len(list(key.iter(S + 'use'))), 1)
-        self.assertEqual([d.get(ID) for d in root.iter(M + 'dir')], ['dir-L8F1'])
-        clef = layer.find(M + 'clef')
-        self.assertEqual((clef.get(ID), clef.get('shape'), clef.get('line')), ('clef-L9F1', 'G', '2'))
-        self.assertIsNone(clef.get('sameas'))
-        facts = observations(name)
-        for id in ['clef-L9F1', 'keysig-L10F1']:
-            self.assertEqual(Fraction(facts[id]['time']), Fraction(1, 4))
-        self.assertEqual(sum(Fraction(facts[e.get(ID)]['duration']) for e in layer.iter(M + 'space')), Fraction(1, 2))
-        self.assertEqual(len(list(layer.iter(M + 'note'))), 0)
+        for name in ['empty-layer-key.krn', 'empty-layer-controls.krn']:
+            root = model(name)
+            layer = lower_layer(root)
+            keys = layer.findall(M + 'keySig')
+            self.assertEqual([key.attrib for key in keys],
+                             [{ID: 'keysig-L10F1', 'type': 'mid-measure', 'sig': '1f'}],
+                             'new empty-layer fill must preserve the existing interpretation loop')
+            svg = ET.fromstring(render(name, 'svg'))
+            key = next(g for g in svg.iter() if g.get('id') == 'keysig-L10F1')
+            self.assertEqual(len(list(key.iter(S + 'use'))), 1)
+            self.assertEqual([d.get(ID) for d in root.iter(M + 'dir')], ['dir-L7F1'])
+            clef = layer.find(M + 'clef')
+            self.assertEqual((clef.get(ID), clef.get('shape'), clef.get('line')), ('clef-L9F1', 'G', '2'))
+            self.assertIsNone(clef.get('sameas'))
+            facts = observations(name)
+            for id in ['clef-L9F1', 'keysig-L10F1']:
+                self.assertEqual(Fraction(facts[id]['time']), Fraction(1, 4))
+            self.assertEqual(sum(Fraction(facts[e.get(ID)]['duration']) for e in layer.iter(M + 'space')), Fraction(1, 2))
+            self.assertEqual(len(list(layer.iter(M + 'note'))), 0)
+
+            if name == 'empty-layer-controls.krn':
+                meter = layer.find(M + 'meterSig')
+                self.assertEqual(meter.attrib, {ID: 'metersig-L11F1', 'count': '3', 'unit': '4'})
+                self.assertEqual(Fraction(facts['metersig-L11F1']['time']), Fraction(1, 4))
+                tempo = root.find('.//' + M + 'tempo')
+                self.assertEqual(tempo.attrib, {ID: 'tempo-L12F1', 'tstamp': '2', 'midi.bpm': '88'})
+                self.assertEqual(len(list(root.iter(M + 'pedal'))), 2)
 
     def test_partial_empty_layer_retains_its_clef_copy(self):
         name = 'partial-empty.krn'

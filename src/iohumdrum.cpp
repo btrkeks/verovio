@@ -13714,17 +13714,15 @@ void HumdrumInput::handleGroupEnds(
 // HumdrumInput::fillEmptyLayer --
 //
 
-void HumdrumInput::fillEmptyLayer(int staffindex, int layerindex, std::vector<std::string> &elements,
-    std::vector<void *> &pointers, const std::vector<hum::HTp> &layerClefs)
+void HumdrumInput::fillEmptyLayer(
+    int staffindex, int layerindex, std::vector<std::string> &elements, std::vector<void *> &pointers,
+    const std::vector<hum::HTp> &layerClefs, hum::HumNum starttime, hum::HumNum endtime)
 {
     std::vector<hum::HTp> &layerdata = m_layertokens[staffindex][layerindex];
-    if ((layerdata.size() >= 2) && layerdata[0]->isBarline() && layerdata.back()->isBarline()) {
-        hum::HumNum cursor = layerdata[0]->getDurationFromStart();
-        const hum::HumNum endtime = layerdata.back()->getDurationFromStart();
-        if (layerClefs.empty()) {
-            addSpace(elements, pointers, endtime - cursor, "straddle");
-            return;
-        }
+    if (!layerClefs.empty()) {
+        // A layer created within the measure need not have stored its opening
+        // barline. Its generated fill still spans the actual measure interval.
+        hum::HumNum cursor = starttime;
         for (int i = 0; i < (int)layerdata.size(); ++i) {
             if (layerClefs[i]) {
                 const hum::HumNum onset = layerClefs[i]->getDurationFromStart();
@@ -13735,6 +13733,10 @@ void HumdrumInput::fillEmptyLayer(int staffindex, int layerindex, std::vector<st
             if (i || !layerdata[i]->isBarline()) processDirections(layerdata[i], staffindex);
         }
         addClefGapSpace(elements, pointers, endtime - cursor, "straddle");
+    }
+    else if ((layerdata.size() >= 2) && layerdata[0]->isBarline() && layerdata.back()->isBarline()) {
+        addSpace(elements, pointers,
+            layerdata.back()->getDurationFromStart() - layerdata[0]->getDurationFromStart(), "straddle");
     }
 }
 
@@ -13992,19 +13994,19 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
     pointers.push_back((void *)layer);
 
     if ((layerdata.size() == 2) && layerdata[0]->isBarline() && layerdata[1]->isBarline()) {
-        fillEmptyLayer(staffindex, layerindex, elements, pointers);
+        fillEmptyLayer(staffindex, layerindex, elements, pointers, {}, starttime, endtime);
         return true;
     }
 
     if (hasLayerClef && !hasLayerData) {
-        fillEmptyLayer(staffindex, layerindex, elements, pointers, layerClefs);
+        fillEmptyLayer(staffindex, layerindex, elements, pointers, layerClefs, starttime, endtime);
         return true;
     }
 
     // Check for cases where there are only null interpretations in the measure
     // and insert a space in the measure (related to tied notes across barlines).
     if (layerOnlyContainsNullStuff(layerdata)) {
-        fillEmptyLayer(staffindex, layerindex, elements, pointers);
+        fillEmptyLayer(staffindex, layerindex, elements, pointers, {}, starttime, endtime);
         return true;
     }
 

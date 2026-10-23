@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import argparse
-import json
+from collections import Counter
 import subprocess
 import unittest
 import xml.etree.ElementTree as E
@@ -36,6 +36,7 @@ class ScoreDefPlacement(unittest.TestCase):
                         measure = measures[number]
                         container = parents[measure]
                         children = list(container)
+                        self.assertGreater(children.index(measure), 0, "scoreDef must precede the first measure too")
                         previous = children[children.index(measure) - 1]
                         self.assertEqual(previous.tag, M + 'scoreDef',
                                          'SCOREDEF_PLACEMENT: change must immediately precede its measure in the same actual container')
@@ -60,9 +61,14 @@ class ScoreDefPlacement(unittest.TestCase):
                 now = E.fromstring(render(name, 'mei'))
                 old = E.fromstring(render(name, 'mei', args.baseline_runner, '.baseline'))
                 tags = {M + n for n in ['note', 'rest', 'clef', 'keySig', 'meterSig']}
-                facts = lambda r: {e.get(ID): e.attrib for e in r.iter() if e.tag in tags}
+                def facts(root):
+                    source = {e.get(ID): e.attrib for e in root.iter() if e.tag in tags and '-L' in e.get(ID, '')}
+                    parents = {child: parent for parent in root.iter() for child in parent}
+                    generated = Counter((e.tag, parents[e].get('n'), tuple(sorted((k, v) for k, v in e.attrib.items() if k != ID)))
+                                        for e in root.iter() if e.tag in tags and '-L' not in e.get(ID, ''))
+                    return source, generated
                 self.assertEqual(facts(now), facts(old))
-                state = lambda r: [e.attrib for e in r.iter(M + 'staffDef') if e.get('trans.semi') is not None]
+                state = lambda r: [{k: v for k, v in e.attrib.items() if k != ID} for e in r.iter(M + 'staffDef') if e.get('trans.semi') is not None]
                 self.assertEqual(state(now), state(old))
                 current = render(name, 'observer').decode().splitlines()
                 previous = render(name, 'observer', args.baseline_runner, '.baseline').decode().splitlines()

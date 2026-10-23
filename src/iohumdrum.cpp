@@ -22000,7 +22000,7 @@ void HumdrumInput::addSystemClefKeyTimeChange(int startline, int endline)
 
     // A score def needs to be added for the clef/key/time sig changes:
     ScoreDef *scoreDef = new ScoreDef();
-    m_sections.back()->AddChild(scoreDef);
+    m_measure->GetParent()->InsertBefore(m_measure, scoreDef);
 
     // Now need to identifiy if all staves on the system
     // change at the same time, in which case the change
@@ -30204,10 +30204,6 @@ void HumdrumInput::setupSystemMeasure(int startline, int endline)
 
     // fix for **mens ggg
 
-    if (!m_mens && (infile[startline].getDurationFromStart() > 0)) {
-        addSystemClefKeyTimeChange(startline, endline);
-    }
-
     std::string previoussection = m_lastsection;
     std::string currentsection;
     if (m_sectionlabels[startline]) {
@@ -30320,6 +30316,10 @@ void HumdrumInput::setupSystemMeasure(int startline, int endline)
         if (m_measure) {
             m_sections.back()->AddChild(m_measure);
         }
+    }
+
+    if (!m_mens && (infile[startline].getDurationFromStart() > 0)) {
+        addSystemClefKeyTimeChange(startline, endline);
     }
 
     m_endingnum = endnum;

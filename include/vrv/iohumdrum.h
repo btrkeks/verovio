@@ -547,7 +547,7 @@ protected:
     void addArpeggio(vrv::Object *object, hum::HTp token);
     void getTimingInformation(std::vector<hum::HumNum> &prespace, std::vector<hum::HTp> &layerdata,
         hum::HumNum layerstarttime, hum::HumNum layerendtime, const std::vector<hum::HTp> &layerClefs,
-        std::vector<bool> &inGeneratedGap);
+        std::vector<bool> &inGeneratedGap, bool emptyClefLayer);
     void convertChord(Chord *chord, hum::HTp token, int staffindex);
     void prepareVerses();
     void checkForOmd(int startline, int endline);
@@ -585,7 +585,7 @@ protected:
     void removeBeam(std::vector<std::string> &elements, std::vector<void *> &pointers);
     vrv::Clef *insertClefElement(std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp clef,
         hum::HTp lastnote, hum::HTp carrier = NULL, int layerindex = -1, bool atSourceTime = false);
-    void addClefGapSpace(std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HumNum duration,
+    void addExactClefGapSpace(std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HumNum duration,
         const std::string &typestring);
     int firstGlobalDataLine(int startline, int endline);
     hum::HTp layerClefDeclaration(hum::HTp token, hum::HTp previous, int firstDataLine);
@@ -769,7 +769,7 @@ protected:
     bool checkForScordatura(hum::HumdrumFile &infile);
     void adjustMeasureTimings(hum::HumdrumFile &infile);
     void fillEmptyLayer(int staffindex, int layerindex, std::vector<std::string> &elements,
-        std::vector<void *> &pointers, const std::vector<hum::HTp> &layerClefs, hum::HumNum starttime, hum::HumNum endtime);
+        std::vector<void *> &pointers, hum::HumNum measureStartTime, hum::HumNum measureEndTime);
     bool processOverfillingNotes(hum::HTp token);
     bool isNextBarIgnored(hum::HTp token);
     void hideTerminalBarlines(hum::HumdrumFile &infile);

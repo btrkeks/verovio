@@ -17,6 +17,11 @@ public:
     void observePrefixes(vrv::Object *object = nullptr)
     {
         if (!object) object = &m_doc;
+        if (auto *measure = dynamic_cast<vrv::Measure *>(object)) {
+            const auto time = measure->m_measureAligner.GetMaxTime();
+            std::cout << "measure-end\t" << measure->GetID() << '\t' << time.GetNumerator() << '/'
+                      << time.GetDenominator() << '\n';
+        }
         if (auto *layer = dynamic_cast<vrv::Layer *>(object)) {
             auto *key = layer->GetStaffDefKeySig();
             auto *staff = dynamic_cast<vrv::Staff *>(layer->GetFirstAncestor(vrv::STAFF));

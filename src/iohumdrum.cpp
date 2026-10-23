@@ -13714,15 +13714,27 @@ void HumdrumInput::handleGroupEnds(
 // HumdrumInput::fillEmptyLayer --
 //
 
-void HumdrumInput::fillEmptyLayer(
-    int staffindex, int layerindex, std::vector<std::string> &elements, std::vector<void *> &pointers)
+void HumdrumInput::fillEmptyLayer(int staffindex, int layerindex, std::vector<std::string> &elements,
+    std::vector<void *> &pointers, const std::vector<hum::HTp> &layerClefs)
 {
     std::vector<hum::HTp> &layerdata = m_layertokens[staffindex][layerindex];
     if ((layerdata.size() >= 2) && layerdata[0]->isBarline() && layerdata.back()->isBarline()) {
-        hum::HumNum starttime = layerdata[0]->getDurationFromStart();
-        hum::HumNum endtime = layerdata.back()->getDurationFromStart();
-        hum::HumNum duration = endtime - starttime;
-        addSpace(elements, pointers, duration, "straddle");
+        hum::HumNum cursor = layerdata[0]->getDurationFromStart();
+        const hum::HumNum endtime = layerdata.back()->getDurationFromStart();
+        if (layerClefs.empty()) {
+            addSpace(elements, pointers, endtime - cursor, "straddle");
+            return;
+        }
+        for (int i = 0; i < (int)layerdata.size(); ++i) {
+            if (layerClefs[i]) {
+                const hum::HumNum onset = layerClefs[i]->getDurationFromStart();
+                addClefGapSpace(elements, pointers, onset - cursor, "straddle");
+                insertClefElement(elements, pointers, layerClefs[i], NULL, layerdata[i], layerindex, true);
+                cursor = onset;
+            }
+            if (i || !layerdata[i]->isBarline()) processDirections(layerdata[i], staffindex);
+        }
+        addClefGapSpace(elements, pointers, endtime - cursor, "straddle");
     }
 }
 
@@ -13842,7 +13854,7 @@ bool HumdrumInput::checkForLayerJoin(int staffindex, int layerindex)
 
 //////////////////////////////
 //
-// HumdrumInput::fillContentsOfLayer -- Fill the layer with musical data.
+// HumdrumInput::firstGlobalDataLine -- Shared scoreDef/layer clef boundary.
 //
 
 int HumdrumInput::firstGlobalDataLine(int startline, int endline)
@@ -13871,6 +13883,11 @@ hum::HTp HumdrumInput::layerClefDeclaration(hum::HTp token, hum::HTp previous, i
     }
     return NULL;
 }
+
+//////////////////////////////
+//
+// HumdrumInput::fillContentsOfLayer -- Fill the layer with musical data.
+//
 
 bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, int layerindex)
 {
@@ -13938,6 +13955,9 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
     getTimingInformation(prespace, layerdata, layerstarttime, layerendtime, layerClefs, inGeneratedGap);
 
     const bool hasGapClef = std::find(inGeneratedGap.begin(), inGeneratedGap.end(), true) != inGeneratedGap.end();
+    const bool hasLayerClef = std::any_of(layerClefs.begin(), layerClefs.end(), [](hum::HTp clef) { return clef; });
+    const bool hasLayerData = std::any_of(
+        layerdata.begin(), layerdata.end(), [](hum::HTp token) { return token->isData() && !token->isNull(); });
 
     if (emptyMeasures()) {
         if (timesigdurs[startline] == duration) {
@@ -13976,6 +13996,11 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
         return true;
     }
 
+    if (hasLayerClef && !hasLayerData) {
+        fillEmptyLayer(staffindex, layerindex, elements, pointers, layerClefs);
+        return true;
+    }
+
     // Check for cases where there are only null interpretations in the measure
     // and insert a space in the measure (related to tied notes across barlines).
     if (layerOnlyContainsNullStuff(layerdata)) {
@@ -13990,6 +14015,11 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
     // whole-measure rests later.  Also have to deal with
     // pedal mark in mrest meaures.
     if (hasFullMeasureRest(layerdata, timesigdurs[startline], duration)) {
+        for (int i = 0; i < (int)layerdata.size(); ++i) {
+            if (layerClefs[i] && (layerClefs[i]->getDurationFromStart() == layerstarttime)) {
+                insertClefElement(elements, pointers, layerClefs[i], NULL, layerdata[i], layerindex, true);
+            }
+        }
         hum::HumNum meterDur;
         meterDur = 4;
         meterDur = meterDur / ss[staffindex].meter_bottom;
@@ -14111,7 +14141,7 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             if (layerdata[i]->getDurationFromBarline() > 0) {
                 // only insert a clef change after the whole-note rest
                 // if the clef change is not really an initial clef.
-                insertClefElement(elements, pointers, layerdata[i], lastnote);
+                insertClefElement(elements, pointers, layerdata[i], lastnote, layerdata[i], layerindex);
             }
         }
 
@@ -14157,8 +14187,10 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             lastnote = token;
         }
         if (prespace.at(i) > 0) {
-            if (hasGapClef) addClefGapSpace(elements, pointers, prespace.at(i), "straddle");
-            else addSpace(elements, pointers, prespace.at(i), "straddle");
+            if (hasGapClef)
+                addClefGapSpace(elements, pointers, prespace.at(i), "straddle");
+            else
+                addSpace(elements, pointers, prespace.at(i), "straddle");
         }
         if (token->isData() && token->isNull()) {
             // print any global text directions attached to the null token
@@ -14294,7 +14326,8 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
                 }
             }
             else if (layerClefs[i]) {
-                insertClefElement(elements, pointers, layerClefs[i], lastnote, token, layerindex, inGeneratedGap[i]);
+                insertClefElement(elements, pointers, layerClefs[i], lastnote, token, layerindex,
+                    inGeneratedGap[i] || (!lastnote && (token->getDurationFromStart() == layerstarttime)));
                 if (restSplitToken != NULL) {
                     // Complete the existing rest split after its intervening clef.
                     Space *irest = new Space();
@@ -14754,8 +14787,10 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             // if there is empty space at the end of the layer.  The layer is
             // rhythmically too short, so add a space element to match the
             // amount of underfilling.
-            if (hasGapClef) addClefGapSpace(elements, pointers, prespace.back(), "filler");
-            else addSpace(elements, pointers, prespace.back(), "filler");
+            if (hasGapClef)
+                addClefGapSpace(elements, pointers, prespace.back(), "filler");
+            else
+                addSpace(elements, pointers, prespace.back(), "filler");
         }
     }
 
@@ -22399,15 +22434,14 @@ void HumdrumInput::setRepeatSlashes(BeatRpt *repeat, std::vector<hum::HTp> &toke
 // the movement.
 //
 
-Clef *HumdrumInput::insertClefElement(
-    std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp token, hum::HTp lastnote,
-    hum::HTp carrier, int layerindex, bool inGeneratedGap)
+Clef *HumdrumInput::insertClefElement(std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp token,
+    hum::HTp lastnote, hum::HTp carrier, int layerindex, bool atSourceTime)
 {
     Clef *clef = new Clef();
 
     bool sameas = false;
     hum::HumNum clefpos = -1;
-    if (inGeneratedGap) {
+    if (atSourceTime) {
         clefpos = token->getDurationFromBarline();
     }
     else if (lastnote) {
@@ -25754,8 +25788,8 @@ void HumdrumInput::setNoteMeiDur(Note *note, int meidur)
 //     elements if necessary.
 
 void HumdrumInput::getTimingInformation(std::vector<hum::HumNum> &prespace, std::vector<hum::HTp> &layerdata,
-    hum::HumNum layerstarttime, hum::HumNum layerendtime,
-    const std::vector<hum::HTp> &layerClefs, std::vector<bool> &inGeneratedGap)
+    hum::HumNum layerstarttime, hum::HumNum layerendtime, const std::vector<hum::HTp> &layerClefs,
+    std::vector<bool> &inGeneratedGap)
 {
     prespace.resize(layerdata.size(), 0);
     if (m_mens) {

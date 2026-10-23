@@ -1,10 +1,10 @@
 #include "c_wrapper.h"
-#include "toolkit.h"
 #include "horizontalaligner.h"
+#include "layer.h"
 #include "layerelement.h"
 #include "measure.h"
 #include "staff.h"
-#include "layer.h"
+#include "toolkit.h"
 #include "vrv.h"
 #include <fstream>
 #include <iostream>
@@ -22,10 +22,12 @@ public:
             auto *layer = dynamic_cast<vrv::Layer *>(element->GetFirstAncestor(vrv::LAYER));
             auto *measure = element->GetFirstAncestor(vrv::MEASURE);
             if (staff && layer && measure) {
-                std::cout << element->GetID() << '\t' << element->GetClassName() << '\t'
-                          << measure->GetID() << '\t' << staff->GetN() << '\t' << layer->GetN() << '\t';
-                if (alignment) std::cout << alignment->GetTime().GetNumerator() << '/' << alignment->GetTime().GetDenominator();
-                else std::cout << "none";
+                std::cout << element->GetID() << '\t' << element->GetClassName() << '\t' << measure->GetID() << '\t'
+                          << staff->GetN() << '\t' << layer->GetN() << '\t';
+                if (alignment)
+                    std::cout << alignment->GetTime().GetNumerator() << '/' << alignment->GetTime().GetDenominator();
+                else
+                    std::cout << "none";
                 const auto duration = element->GetAlignmentDuration();
                 std::cout << '\t' << duration.GetNumerator() << '/' << duration.GetDenominator() << '\n';
             }
@@ -46,16 +48,22 @@ int main(int argc, char **argv)
         ObservedToolkit toolkit;
         if (!toolkit.SetOptions(options) || !toolkit.LoadData(input)) return 3;
         const std::string svg = toolkit.RenderToSVG(1, false);
-        if (mode == "observer-svg") std::cout << svg;
-        else if (mode == "observer-mei") std::cout << toolkit.GetMEI("{\"scoreBased\":true,\"basic\":false,\"removeIds\":false}");
-        else toolkit.observe();
+        if (mode == "observer-svg")
+            std::cout << svg;
+        else if (mode == "observer-mei")
+            std::cout << toolkit.GetMEI("{\"scoreBased\":true,\"basic\":false,\"removeIds\":false}");
+        else
+            toolkit.observe();
     }
     else {
         void *toolkit = vrvToolkit_constructorResourcePath(argv[1]);
         if (!vrvToolkit_setOptions(toolkit, options.c_str()) || !vrvToolkit_loadData(toolkit, input.c_str())) return 3;
-        if (mode == "mei") std::cout << vrvToolkit_getMEI(toolkit, "{\"scoreBased\":true,\"basic\":false,\"removeIds\":false}");
-        else if (mode == "options") std::cout << vrvToolkit_getOptions(toolkit);
-        else std::cout << vrvToolkit_renderToSVG(toolkit, 1, false);
+        if (mode == "mei")
+            std::cout << vrvToolkit_getMEI(toolkit, "{\"scoreBased\":true,\"basic\":false,\"removeIds\":false}");
+        else if (mode == "options")
+            std::cout << vrvToolkit_getOptions(toolkit);
+        else
+            std::cout << vrvToolkit_renderToSVG(toolkit, 1, false);
         vrvToolkit_destructor(toolkit);
     }
 }

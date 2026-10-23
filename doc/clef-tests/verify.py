@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Assertions over public-wrapper engraving and the same Toolkit's layout model."""
 import argparse
+import sys
+
+sys.dont_write_bytecode = True
 import json
 import subprocess
 import unittest

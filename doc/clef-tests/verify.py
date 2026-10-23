@@ -153,14 +153,34 @@ class ClefImport(unittest.TestCase):
         root = model('forced-opening.krn')
         self.assertEqual([e.get(ID) for e in root.iter(M + 'clef')], ['clef-L2F1', 'clef-L3F1'])
 
-    def test_ended_layer_gap_is_independent_and_exact(self):
+    def test_ended_layer_gap_keeps_source_owner_and_exact_time(self):
         root = model('ended-layer-gap.krn')
         clefs = {e.get(ID): e for e in root.iter(M + 'clef')}
         facts = observations('ended-layer-gap.krn')
         for id in ['clef-L9F1', 'clef-L9F1b']:
             self.assertEqual(Fraction(facts[id]['time']), Fraction(1, 2))
-            self.assertIsNone(clefs[id].get('sameas'))
+        self.assertIsNone(clefs['clef-L9F1'].get('sameas'))
+        self.assertEqual(clefs['clef-L9F1b'].get('sameas'), '#clef-L9F1')
         self.assertEqual(Fraction(facts['note-L6F2']['duration']), Fraction(1, 4))
+        import ink
+        render('ended-layer-gap.krn', 'svg')
+        _, ids, _ = ink.load(Path(args.output) / 'ended-layer-gap.krn.svg')
+        self.assertEqual(len(ink.paths(ids['clef-L9F1'], ids, ink.I, ink.DEFAULT)), 1)
+        self.assertFalse(ink.paths(ids['clef-L9F1b'], ids, ink.I, ink.DEFAULT))
+
+    def test_source_owner_does_not_merge_distinct_declarations(self):
+        name = 'source-copy-distinct.krn'
+        root = model(name)
+        clefs = {e.get(ID): e for e in root.iter(M + 'clef')}
+        facts = observations(name)
+        import ink
+        render(name, 'svg')
+        _, ids, _ = ink.load(Path(args.output) / f'{name}.svg')
+        for origin, shape, line in [('clef-L12F1', 'F', '4'), ('clef-L12F2', 'C', '3')]:
+            self.assertEqual((clefs[origin].get('shape'), clefs[origin].get('line')), (shape, line))
+            self.assertIsNone(clefs[origin].get('sameas'))
+            self.assertEqual(Fraction(facts[origin]['time']), 1)
+            self.assertEqual(len(ink.paths(ids[origin], ids, ink.I, ink.DEFAULT)), 1)
 
     def test_native_yy_controls_and_five_preserved_ink_shapes(self):
         import ink

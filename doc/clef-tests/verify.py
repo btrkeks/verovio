@@ -227,7 +227,7 @@ class ClefImport(unittest.TestCase):
                     self.assertEqual(sum(Fraction(facts[e.get(ID)]['duration']) for e in spaces), 1)
 
     def test_generated_gap_exact_time_and_conservation(self):
-        for name, onset in [('positive-gap.krn', Fraction(1)), ('fractional-gap.krn', Fraction(1, 3)), ('same-onset-gap.krn', Fraction(1))]:
+        for name, onset in [('positive-gap.krn', Fraction(1)), ('fractional-gap.krn', Fraction(1, 3)), ('dyadic-gap.krn', Fraction(5, 8)), ('same-onset-gap.krn', Fraction(1))]:
             with self.subTest(name=name):
                 layer = lower_layer(model(name))
                 clefs = layer.findall(M + 'clef')

@@ -13731,8 +13731,13 @@ void HumdrumInput::fillEmptyLayer(
                 cursor = onset;
             }
             if (i || !layerdata[i]->isBarline()) processDirections(layerdata[i], staffindex);
+            if (layerdata[i]->isInterpretation()) handlePedalMark(layerdata[i]);
         }
         addClefGapSpace(elements, pointers, endtime - cursor, "straddle");
+        if ((layerindex == 0) && !layerdata.empty() && layerdata.back()->isBarline()) {
+            if (layerdata.back()->find(";") != std::string::npos) addFermata(layerdata.back(), NULL);
+            if (layerdata.back()->find(",") != std::string::npos) addBreath(layerdata.back(), NULL);
+        }
     }
     else if ((layerdata.size() >= 2) && layerdata[0]->isBarline() && layerdata.back()->isBarline()) {
         addSpace(elements, pointers,

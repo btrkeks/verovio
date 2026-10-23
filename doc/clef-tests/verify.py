@@ -186,6 +186,22 @@ class ClefImport(unittest.TestCase):
                     edges = lambda r: {e.get(ID): e.get('sameas') for e in r.iter(M + 'clef')}
                     self.assertEqual(edges(current), edges(previous))
 
+    def test_partial_empty_layer_retains_its_clef_copy(self):
+        name = 'partial-empty.krn'
+        root = model(name)
+        measure = root.findall('.//' + M + 'measure')[1]
+        layers = measure.findall(M + "staff[@n='2']/" + M + 'layer')
+        self.assertEqual(len(layers), 2)
+        facts = observations(name)
+        for layer, origin in zip(layers, ['clef-L9F1', 'clef-L9F2']):
+            clefs = layer.findall(M + 'clef')
+            self.assertEqual(len(clefs), 1, 'partial empty layer must retain its source-owned copy')
+            self.assertEqual(clefs[0].get(ID), origin)
+            self.assertEqual((clefs[0].get('shape'), clefs[0].get('line')), ('G', '2'))
+            self.assertEqual(Fraction(facts[origin]['time']), Fraction(1, 4))
+            self.assertEqual(sum(Fraction(facts[e.get(ID)]['duration']) for e in layer.iter(M + 'space')), 1)
+            self.assertEqual(len(list(layer.iter(M + 'note'))), 0)
+
     def test_newly_eligible_empty_and_full_rest(self):
         for name, onset in [('full-rest-zero.krn', Fraction(0)), ('empty-gap.krn', Fraction(1, 4)), ('linked-empty-gap.krn', Fraction(1, 4))]:
             with self.subTest(name=name):

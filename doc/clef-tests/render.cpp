@@ -26,7 +26,8 @@ public:
                           << measure->GetID() << '\t' << staff->GetN() << '\t' << layer->GetN() << '\t';
                 if (alignment) std::cout << alignment->GetTime().GetNumerator() << '/' << alignment->GetTime().GetDenominator();
                 else std::cout << "none";
-                std::cout << '\n';
+                const auto duration = element->GetAlignmentDuration();
+                std::cout << '\t' << duration.GetNumerator() << '/' << duration.GetDenominator() << '\n';
             }
         }
         for (auto *child : object->GetChildren()) observe(child);

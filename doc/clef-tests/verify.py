@@ -44,7 +44,7 @@ def lower_layer(root):
 
 
 def observations(name):
-    return {row[0]: dict(zip(('kind', 'measure', 'staff', 'layer', 'time'), row[1:]))
+    return {row[0]: dict(zip(('kind', 'measure', 'staff', 'layer', 'time', 'duration'), row[1:]))
             for row in (line.split('\t') for line in render(name, 'observer').splitlines())}
 
 
@@ -101,8 +101,8 @@ class ClefImport(unittest.TestCase):
                 self.assertEqual(len(notes), 1)
                 self.assertEqual(notes[0].get('dur'), '2')
                 self.assertEqual(Fraction(facts[notes[0].get(ID)]['time']), Fraction(1, 2))
-                spaces = layer.findall(M + 'space')
-                durations = [Fraction(4, int(s.get('dur.ges', s.get('dur')))) * sum(Fraction(1, 2**i) for i in range(int(s.get('dots.ges', s.get('dots', '0'))) + 1)) for s in spaces]
+                spaces = list(layer.iter(M + 'space'))
+                durations = [Fraction(facts[s.get(ID)]['duration']) * 4 for s in spaces]
                 self.assertEqual(sum(durations), 2, 'same two-quarter finalized fill budget')
                 self.assertEqual(len(model(name).findall('.//' + M + 'measure')), 2)
 

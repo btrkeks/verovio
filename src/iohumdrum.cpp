@@ -14177,6 +14177,9 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             continue;
         }
         if (token->isInterpretation()) {
+            if (emptyClefLayer && !token->isTimeSignature()) {
+                processDirections(token, staffindex);
+            }
             processInterpretationStuff(token, staffindex);
             if (*token == "*join") {
                 m_join = true;

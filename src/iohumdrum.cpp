@@ -13845,6 +13845,33 @@ bool HumdrumInput::checkForLayerJoin(int staffindex, int layerindex)
 // HumdrumInput::fillContentsOfLayer -- Fill the layer with musical data.
 //
 
+int HumdrumInput::firstGlobalDataLine(int startline, int endline)
+{
+    for (int i = startline; i <= endline; ++i) {
+        if (m_infiles[0][i].isData()) return i;
+    }
+    return endline + 1;
+}
+
+hum::HTp HumdrumInput::layerClefDeclaration(hum::HTp token, hum::HTp previous, int firstDataLine)
+{
+    if (token->isMensLike()) return NULL;
+    hum::HTp declaration = token;
+    if (*token == "*") {
+        if (previous && (previous->getLineIndex() == token->getLineIndex())) return NULL;
+        declaration = token->getPreviousFieldToken();
+        while (declaration && (declaration->getTrack() == token->getTrack())) {
+            if (declaration->isClef()) break;
+            declaration = declaration->getPreviousFieldToken();
+        }
+    }
+    if (!declaration || !declaration->isClef() || (declaration->getTrack() != token->getTrack())) return NULL;
+    if ((declaration->getLineIndex() >= firstDataLine) || declaration->getValueBool("auto", "clefChange")) {
+        return declaration;
+    }
+    return NULL;
+}
+
 bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, int layerindex)
 {
     hum::HumdrumFile &infile = m_infiles[0];
@@ -13900,8 +13927,17 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
         layerendtime = infile[endline].getDurationFromStart();
     }
 
+    const int firstDataLine = firstGlobalDataLine(startline, endline);
+    std::vector<hum::HTp> layerClefs(layerdata.size(), NULL);
+    for (int i = 0; i < (int)layerdata.size(); ++i) {
+        layerClefs[i] = layerClefDeclaration(layerdata[i], i ? layerdata[i - 1] : NULL, firstDataLine);
+    }
+
     std::vector<hum::HumNum> prespace;
-    getTimingInformation(prespace, layerdata, layerstarttime, layerendtime);
+    std::vector<bool> inGeneratedGap(layerdata.size(), false);
+    getTimingInformation(prespace, layerdata, layerstarttime, layerendtime, layerClefs, inGeneratedGap);
+
+    const bool hasGapClef = std::find(inGeneratedGap.begin(), inGeneratedGap.end(), true) != inGeneratedGap.end();
 
     if (emptyMeasures()) {
         if (timesigdurs[startline] == duration) {
@@ -14121,7 +14157,8 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             lastnote = token;
         }
         if (prespace.at(i) > 0) {
-            addSpace(elements, pointers, prespace.at(i), "straddle");
+            if (hasGapClef) addClefGapSpace(elements, pointers, prespace.at(i), "straddle");
+            else addSpace(elements, pointers, prespace.at(i), "straddle");
         }
         if (token->isData() && token->isNull()) {
             // print any global text directions attached to the null token
@@ -14256,89 +14293,20 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
                     setMensurationSymbol(m_layer, *token, staffindex, token);
                 }
             }
-            else if (forceClefChange || notAtStart) {
-                if (token->isClef()) {
-                    int subtrack = token->getSubtrack();
-                    if (subtrack) {
-                        subtrack--;
+            else if (layerClefs[i]) {
+                insertClefElement(elements, pointers, layerClefs[i], lastnote, token, layerindex, inGeneratedGap[i]);
+                if (restSplitToken != NULL) {
+                    // Complete the existing rest split after its intervening clef.
+                    Space *irest = new Space();
+                    if (m_doc->GetOptions()->m_humType.GetValue()) {
+                        embedQstampInClass(irest, restSplitToken, *restSplitToken);
                     }
-
-                    hum::HumNum durFromStart = token->getDurationFromStart();
-                    hum::HumNum durFromBarline = token->getDurationFromBarline();
-
-                    Clef *clef = NULL;
-                    if ((durFromStart > 0) && (durFromBarline == 0) && !notAtStart) {
-                        // This clef will be inserted into a staffDef for the current
-                        // staff, which is handled elsewhere.
-                    }
-                    else {
-                        // Store in the layer as a cautionary staff.
-                        clef = insertClefElement(elements, pointers, token, lastnote);
-                    }
-
-                    if (clef) {
-                        if (token->find("yy") != std::string::npos) {
-                            clef->SetVisible(BOOLEAN_false);
-                        }
-                        setLocationId(clef, token);
-                        int diff = layerindex - subtrack;
-                        if (diff > 0) {
-                            std::string letter;
-                            letter.push_back('a' + diff);
-                            std::string id = clef->GetID();
-                            id += letter;
-                            clef->SetID(id);
-                        }
-                        if (restSplitToken != NULL) {
-                            // Add the second part of a split invisible rest (or
-                            // the invisible second part of a split visible rest):
-                            Space *irest = new Space();
-                            if (m_doc->GetOptions()->m_humType.GetValue()) {
-                                embedQstampInClass(irest, restSplitToken, *restSplitToken);
-                            }
-                            setLocationId(irest, restSplitToken);
-                            std::string id = irest->GetID();
-                            id += "b";
-                            irest->SetID(id);
-                            appendElement(elements, pointers, irest);
-                            // convertRhythm(irest, restSplitToken);
-                            setRhythmFromDuration(irest, remainingSplitDur);
-                            // processSlurs(restSplitToken);
-                            // processPhrases(restSplitToken);
-                            // processDynamics(restSplitToken, staffindex);
-                            // processDirections(restSplitToken, staffindex);
-                            // Store rest here to complete the split after the clef change.
-                            restSplitToken = NULL;
-                            remainingSplitDur = 0;
-                        }
-                    }
-                }
-                else if (token->isNull()) {
-                    if ((i > 0) && (token->getLineIndex() == layerdata[i - 1]->getLineIndex())) {
-                        // do nothing: duplicate layer clefs are handled elsewhere
-                    }
-                    else {
-                        // duplicate clef changes in secondary layers
-                        int xtrack = token->getTrack();
-                        hum::HTp tok = token->getPreviousFieldToken();
-                        while (tok) {
-                            int ttrack = tok->getTrack();
-                            if (ttrack == xtrack) {
-                                if (tok->isClef()) {
-                                    Clef *clef = insertClefElement(elements, pointers, tok, lastnote);
-                                    setLocationId(clef, token);
-                                    // Uncomment when clef->SetSameas() is available:
-                                    // std::string sameas = "#clef-L";
-                                    // sameas += to_string(tok->getLineNumber());
-                                    // sameas += "F";
-                                    // sameas += to_string(tok->getFieldNumber());
-                                    // clef->SetSameas(sameas);
-                                    break;
-                                }
-                            }
-                            tok = tok->getPreviousFieldToken();
-                        }
-                    }
+                    setLocationId(irest, restSplitToken);
+                    irest->SetID(irest->GetID() + "b");
+                    appendElement(elements, pointers, irest);
+                    setRhythmFromDuration(irest, remainingSplitDur);
+                    restSplitToken = NULL;
+                    remainingSplitDur = 0;
                 }
             }
             if (token->isTimeSignature()) {
@@ -14786,7 +14754,8 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
             // if there is empty space at the end of the layer.  The layer is
             // rhythmically too short, so add a space element to match the
             // amount of underfilling.
-            addSpace(elements, pointers, prespace.back(), "filler");
+            if (hasGapClef) addClefGapSpace(elements, pointers, prespace.back(), "filler");
+            else addSpace(elements, pointers, prespace.back(), "filler");
         }
     }
 
@@ -17008,6 +16977,30 @@ void HumdrumInput::addOrnamentMarkers(hum::HTp token)
 //    to match the required duration.
 //    default value: typestring = ""
 //
+
+void HumdrumInput::addClefGapSpace(std::vector<std::string> &elements, std::vector<void *> &pointers,
+    hum::HumNum duration, const std::string &typestring)
+{
+    int denominator = duration.getDenominator();
+    while ((denominator > 1) && !(denominator % 2)) denominator /= 2;
+    if (denominator == 1) {
+        addSpace(elements, pointers, duration, typestring);
+        return;
+    }
+
+    // A rational clef partition can need non-binary fill even when the old
+    // unsplit budget was binary. Reuse the native tuplet duration representation.
+    Tuplet *tuplet = new Tuplet();
+    tuplet->SetNum(denominator);
+    tuplet->SetNumbase(1);
+    tuplet->SetNumVisible(BOOLEAN_false);
+    tuplet->SetBracketVisible(BOOLEAN_false);
+    appendElement(elements, pointers, tuplet);
+    elements.push_back("tuplet");
+    pointers.push_back(tuplet);
+    addSpace(elements, pointers, duration * denominator, typestring);
+    popElementStack(elements, pointers);
+}
 
 void HumdrumInput::addSpace(std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HumNum duration,
     const std::string &typestring)
@@ -21941,10 +21934,8 @@ void HumdrumInput::addSystemClefKeyTimeChange(int startline, int endline)
     bool hasKeySig = false;
     bool hasTranspose = false;
 
-    for (int i = startline; i <= endline; ++i) {
-        if (infile[i].isData()) {
-            break;
-        }
+    const int firstDataLine = firstGlobalDataLine(startline, endline);
+    for (int i = startline; i < firstDataLine; ++i) {
         if (!infile[i].isInterpretation()) {
             continue;
         }
@@ -22409,13 +22400,17 @@ void HumdrumInput::setRepeatSlashes(BeatRpt *repeat, std::vector<hum::HTp> &toke
 //
 
 Clef *HumdrumInput::insertClefElement(
-    std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp token, hum::HTp lastnote)
+    std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp token, hum::HTp lastnote,
+    hum::HTp carrier, int layerindex, bool inGeneratedGap)
 {
     Clef *clef = new Clef();
 
     bool sameas = false;
     hum::HumNum clefpos = -1;
-    if (lastnote) {
+    if (inGeneratedGap) {
+        clefpos = token->getDurationFromBarline();
+    }
+    else if (lastnote) {
         clefpos = token->getDurationFromBarline();
         hum::HumNum notepos = lastnote->getDurationFromBarline();
         hum::HumNum duration = hum::Convert::recipToDuration(lastnote);
@@ -22434,7 +22429,16 @@ Clef *HumdrumInput::insertClefElement(
     }
 
     setClefColorOrEditorial(token, clef, elements, pointers);
-    setLocationId(clef, token);
+    setLocationId(clef, carrier ? carrier : token);
+    if (layerindex >= 0) {
+        if (token->find("yy") != std::string::npos) clef->SetVisible(BOOLEAN_false);
+        if (!carrier || (carrier == token)) {
+            int subtrack = token->getSubtrack();
+            if (subtrack) --subtrack;
+            int diff = layerindex - subtrack;
+            if (diff > 0) clef->SetID(clef->GetID() + char('a' + diff));
+        }
+    }
 
     std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
     ss.at(m_currentstaff - 1).last_clef = *token;
@@ -25750,7 +25754,8 @@ void HumdrumInput::setNoteMeiDur(Note *note, int meidur)
 //     elements if necessary.
 
 void HumdrumInput::getTimingInformation(std::vector<hum::HumNum> &prespace, std::vector<hum::HTp> &layerdata,
-    hum::HumNum layerstarttime, hum::HumNum layerendtime)
+    hum::HumNum layerstarttime, hum::HumNum layerendtime,
+    const std::vector<hum::HTp> &layerClefs, std::vector<bool> &inGeneratedGap)
 {
     prespace.resize(layerdata.size(), 0);
     if (m_mens) {
@@ -25832,6 +25837,30 @@ void HumdrumInput::getTimingInformation(std::vector<hum::HumNum> &prespace, std:
             prespace.at(ii) = 0;
             prespace.at(iii) = 0;
         }
+    }
+
+    // Only redistribute finalized generated fill. Data, overlap correction,
+    // linked-null trailing suppression and cancellation above remain unchanged.
+    int first = 0;
+    for (int d = 0; d <= (int)dataindex.size(); ++d) {
+        if (dataindex.empty()) break;
+        const int destination = d < (int)dataindex.size() ? dataindex[d] : (int)layerdata.size();
+        hum::HumNum budget = prespace[destination];
+        if (budget > 0) {
+            const hum::HumNum end = d < (int)dataindex.size() ? startdur[d] : layerendtime;
+            hum::HumNum cursor = end - budget;
+            for (int i = first; i < destination; ++i) {
+                if (!layerClefs[i]) continue;
+                const hum::HumNum onset = layerClefs[i]->getDurationFromStart();
+                if ((onset < cursor) || (onset > end)) continue;
+                const hum::HumNum elapsed = onset - cursor;
+                prespace[i] += elapsed;
+                prespace[destination] -= elapsed;
+                cursor = onset;
+                inGeneratedGap[i] = true;
+            }
+        }
+        first = destination + 1;
     }
 }
 

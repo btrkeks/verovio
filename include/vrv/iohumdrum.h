@@ -546,7 +546,8 @@ protected:
     void addOrnaments(vrv::Object *object, hum::HTp token);
     void addArpeggio(vrv::Object *object, hum::HTp token);
     void getTimingInformation(std::vector<hum::HumNum> &prespace, std::vector<hum::HTp> &layerdata,
-        hum::HumNum layerstarttime, hum::HumNum layerendtime);
+        hum::HumNum layerstarttime, hum::HumNum layerendtime,
+        const std::vector<hum::HTp> &layerClefs, std::vector<bool> &inGeneratedGap);
     void convertChord(Chord *chord, hum::HTp token, int staffindex);
     void prepareVerses();
     void checkForOmd(int startline, int endline);
@@ -583,7 +584,12 @@ protected:
     void removeGBeam(std::vector<std::string> &elements, std::vector<void *> &pointers);
     void removeBeam(std::vector<std::string> &elements, std::vector<void *> &pointers);
     vrv::Clef *insertClefElement(
-        std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp clef, hum::HTp lastnote);
+        std::vector<std::string> &elements, std::vector<void *> &pointers, hum::HTp clef, hum::HTp lastnote,
+        hum::HTp carrier = NULL, int layerindex = -1, bool inGeneratedGap = false);
+    void addClefGapSpace(std::vector<std::string> &elements, std::vector<void *> &pointers,
+        hum::HumNum duration, const std::string &typestring);
+    int firstGlobalDataLine(int startline, int endline);
+    hum::HTp layerClefDeclaration(hum::HTp token, hum::HTp previous, int firstDataLine);
     void insertMeterSigElement(std::vector<std::string> &elements, std::vector<void *> &pointers,
         std::vector<hum::HTp> &layeritems, int index);
     void processSlurs(hum::HTp token);

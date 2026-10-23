@@ -193,6 +193,26 @@ class ClefImport(unittest.TestCase):
         self.assertEqual([(p.get(ID), p.get('staff'), p.get('tstamp'), p.get('dir')) for p in pedals],
                          [('pedal-L9F1', '2', '2', 'down'), ('pedal-L11F1', '2', '5', 'up')])
 
+        name = 'empty-layer-key.krn'
+        root = model(name)
+        layer = lower_layer(root)
+        keys = layer.findall(M + 'keySig')
+        self.assertEqual([key.attrib for key in keys],
+                         [{ID: 'keysig-L10F1', 'type': 'mid-measure', 'sig': '1f'}],
+                         'new empty-layer fill must preserve the existing interpretation loop')
+        svg = ET.fromstring(render(name, 'svg'))
+        key = next(g for g in svg.iter() if g.get('id') == 'keysig-L10F1')
+        self.assertEqual(len(list(key.iter(S + 'use'))), 1)
+        self.assertEqual([d.get(ID) for d in root.iter(M + 'dir')], ['dir-L8F1'])
+        clef = layer.find(M + 'clef')
+        self.assertEqual((clef.get(ID), clef.get('shape'), clef.get('line')), ('clef-L9F1', 'G', '2'))
+        self.assertIsNone(clef.get('sameas'))
+        facts = observations(name)
+        for id in ['clef-L9F1', 'keysig-L10F1']:
+            self.assertEqual(Fraction(facts[id]['time']), Fraction(1, 4))
+        self.assertEqual(sum(Fraction(facts[e.get(ID)]['duration']) for e in layer.iter(M + 'space')), Fraction(1, 2))
+        self.assertEqual(len(list(layer.iter(M + 'note'))), 0)
+
     def test_partial_empty_layer_retains_its_clef_copy(self):
         name = 'partial-empty.krn'
         root = model(name)

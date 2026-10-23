@@ -1,6 +1,7 @@
 #include "c_wrapper.h"
 #include "horizontalaligner.h"
 #include "layer.h"
+#include "keysig.h"
 #include "layerelement.h"
 #include "measure.h"
 #include "staff.h"
@@ -13,6 +14,24 @@
 
 class ObservedToolkit : public vrv::Toolkit {
 public:
+    void observePrefixes(vrv::Object *object = nullptr)
+    {
+        if (!object) object = &m_doc;
+        if (auto *layer = dynamic_cast<vrv::Layer *>(object)) {
+            auto *key = layer->GetStaffDefKeySig();
+            auto *staff = dynamic_cast<vrv::Staff *>(layer->GetFirstAncestor(vrv::STAFF));
+            auto *measure = layer->GetFirstAncestor(vrv::MEASURE);
+            if (key && staff && measure && key->GetAlignment()) {
+                const auto time = key->GetAlignment()->GetTime();
+                std::cout << "prefix\t" << measure->GetID() << '\t' << staff->GetN() << '\t' << layer->GetN()
+                          << '\t' << key->GetID() << '\t' << key->GetAccidCount() << '\t'
+                          << static_cast<int>(key->GetAccidType()) << '\t' << time.GetNumerator() << '/'
+                          << time.GetDenominator() << '\t' << static_cast<int>(key->GetScoreDefRole()) << '\n';
+            }
+        }
+        for (auto *child : object->GetChildren()) observePrefixes(child);
+    }
+
     void observe(vrv::Object *object = nullptr)
     {
         if (!object) object = &m_doc;
@@ -52,6 +71,8 @@ int main(int argc, char **argv)
             std::cout << svg;
         else if (mode == "observer-mei")
             std::cout << toolkit.GetMEI("{\"scoreBased\":true,\"basic\":false,\"removeIds\":false}");
+        else if (mode == "observer-prefix")
+            toolkit.observePrefixes();
         else
             toolkit.observe();
     }

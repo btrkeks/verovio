@@ -22447,7 +22447,20 @@ Clef *HumdrumInput::insertClefElement(std::vector<std::string> &elements, std::v
             int subtrack = token->getSubtrack();
             if (subtrack) --subtrack;
             int diff = layerindex - subtrack;
-            if (diff > 0) clef->SetID(clef->GetID() + char('a' + diff));
+            if (diff > 0) {
+                const std::string sourceId = clef->GetID();
+                clef->SetID(sourceId + char('a' + diff));
+                if (atSourceTime) {
+                    for (const auto &entry : m_clef_buffer) {
+                        Clef *owner = std::get<2>(entry);
+                        if (!std::get<0>(entry) && (std::get<1>(entry) == clefpos) && (owner != clef)
+                            && (owner->GetID() == sourceId)) {
+                            clef->SetSameas("#" + sourceId);
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 

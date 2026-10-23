@@ -769,7 +769,7 @@ protected:
     bool checkForScordatura(hum::HumdrumFile &infile);
     void adjustMeasureTimings(hum::HumdrumFile &infile);
     void fillEmptyLayer(int staffindex, int layerindex, std::vector<std::string> &elements,
-        std::vector<void *> &pointers, const std::vector<hum::HTp> &layerClefs = {});
+        std::vector<void *> &pointers, const std::vector<hum::HTp> &layerClefs, hum::HumNum starttime, hum::HumNum endtime);
     bool processOverfillingNotes(hum::HTp token);
     bool isNextBarIgnored(hum::HTp token);
     void hideTerminalBarlines(hum::HumdrumFile &infile);

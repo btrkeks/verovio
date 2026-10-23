@@ -13998,6 +13998,7 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
                 insertClefElement(elements, pointers, layerClefs[i], NULL, layerdata[i], layerindex, true);
             }
         }
+        MRest *measureRest = NULL;
         hum::HumNum meterDur;
         meterDur = 4;
         meterDur = meterDur / ss[staffindex].meter_bottom;
@@ -14035,9 +14036,9 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
                 if (extradur == 0) {
                     if (meterDur == duration) {
                         // duration of rest matches duration of meter so create mRest
-                        MRest *mrest = new MRest();
-                        appendElement(layer, mrest);
-                        convertMRest(mrest, trest, -1, staffindex);
+                        measureRest = new MRest();
+                        appendElement(layer, measureRest);
+                        convertMRest(measureRest, trest, -1, staffindex);
                     }
                     else {
                         // Duration of rest does not matches duration of meter so use a rest
@@ -14112,6 +14113,9 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
         for (int i = 0; i < (int)layerdata.size(); ++i) {
             if (layerdata[i]->isData() && !layerdata[i]->isNull()) {
                 lastnote = layerdata[i];
+            }
+            if (measureRest && layerdata[i]->isKeySignature() && (layerdata[i]->getDurationFromStart() == endtime)) {
+                insertMidMeasureKeySignature(staffindex, elements, pointers, layerdata[i]);
             }
             if (!layerdata[i]->isClef()) {
                 continue;
@@ -30319,7 +30323,16 @@ void HumdrumInput::setupSystemMeasure(int startline, int endline)
     }
 
     if (!m_mens && (infile[startline].getDurationFromStart() > 0)) {
-        addSystemClefKeyTimeChange(startline, endline);
+        int contextStartLine = startline;
+        for (int i = startline - 1; i >= 0; --i) {
+            if (infile[i].isData() || m_ignore[i]) {
+                break;
+            }
+            if (infile[i].isBarline()) {
+                contextStartLine = i;
+            }
+        }
+        addSystemClefKeyTimeChange(contextStartLine, endline);
     }
 
     m_endingnum = endnum;

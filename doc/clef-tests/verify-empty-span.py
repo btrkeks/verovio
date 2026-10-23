@@ -54,7 +54,7 @@ class EmptySpanContext(unittest.TestCase):
                     siblings = list(parents[target])
                     self.assertGreater(siblings.index(target), 0)
                     self.assertIs(siblings[siblings.index(target) - 1], scoredef)
-                self.assertEqual(parents[target].get(ID), 'label-D1' if name == 'contexts.krn' else 'label-D')
+                self.assertEqual(parents[target].get(ID), 'label-A1' if name == 'contexts.krn' else 'label-D')
                 self.assertEqual(target.get('left'), 'rptstart')
                 self.assertEqual(measures[0].get('right'), 'dbl')
                 svg_bytes = render(name, 'svg')
@@ -77,12 +77,15 @@ class EmptySpanContext(unittest.TestCase):
                     self.assertEqual(len(list(model.iter(M + 'meterSig'))), 4)
 
     def test_preamble_terminal_and_ignored_spans_do_not_create_music(self):
-        for name in ['preamble.krn', 'ignored.krn']:
+        for name in ['preamble.krn', 'ignored.krn', 'tail-no-duplicate.krn']:
             with self.subTest(name=name):
                 now = E.fromstring(render(name, 'mei'))
-                expected_count = 1 if name == 'preamble.krn' else 3
+                expected_count = 1 if name == 'preamble.krn' else 2 if name == 'tail-no-duplicate.krn' else 3
                 self.assertEqual(len(list(now.iter(M + 'measure'))), expected_count)
                 keys = list(now.iter(M + 'keySig'))
+                if name == 'tail-no-duplicate.krn':
+                    self.assertEqual(len([e for e in keys if e.get('type') == 'mid-measure']), 2)
+                    self.assertEqual(len({e.get(ID) for e in keys}), len(keys))
                 if name == 'ignored.krn':
                     self.assertFalse(any(e.get('sig') in ['1f', '3s'] for e in keys))
                 self.assertFalse(any(e.get('sig') == '2f' for e in keys))

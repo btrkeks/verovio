@@ -35,3 +35,21 @@ baseline; their other semantics compare with that already corrected prior
 library. Native-only `*join`/`*Xjoin` cases cover early returns and are not
 accepted-parser fixtures. Meter-restatement and unpainted direction objects
 remain preservation controls, not newly supported text painting.
+
+`verify-mrest-key.py` checks source keys at the existing single-rest endpoint,
+clef/key order and register, invisible rests, split-layer ownership and unchanged
+rest/fill/event data. Its zero-key case preserves the selected normal handler's
+existing empty inline group; it is not a new cancellation-paint success. Interior
+rest keys and compressed multirests retain their old omissions.
+
+`verify-empty-span.py` checks context carried across no-data barline spans,
+actual measure/container identity, repeat/double bars, per-staff transposition,
+initial/ignored/terminal spans and previously emitted tail keys. Link this
+`render.cpp` for its additional `observer-prefix` mode: scoreDef alignment time
+-1 is the existing layout-prefix sentinel, while `measure-end` reports the
+measure aligner's actual endpoint. Default observer output remains unchanged.
+Pass absolute verifier paths when using Clef's heavy-gate runner.
+
+Same-onset key-before-clef sources preserve MEI order and key register. The normal
+renderer’s paint priority is a separate baseline limitation, not an alignment
+correction made by these import assertions.

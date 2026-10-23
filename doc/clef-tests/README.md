@@ -28,3 +28,10 @@ The green result covers these assertions. The conflicting held-clef buffer,
 nested note routing, own-grace paint order and sounding-interior timing fixtures
 also retain pre-existing limitations. Their presence is not a conformance claim
 for those behaviors. The suite creates no bytecode or build output in this tree.
+
+For the direction-carrier matrix, also pass `--previous-runner` linked to the
+actual 933e68a6 library. New direction objects compare with the selected old
+baseline; their other semantics compare with that already corrected prior
+library. Native-only `*join`/`*Xjoin` cases cover early returns and are not
+accepted-parser fixtures. Meter-restatement and unpainted direction objects
+remain preservation controls, not newly supported text painting.

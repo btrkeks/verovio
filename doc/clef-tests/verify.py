@@ -25,6 +25,7 @@ def normalized_xml(text):
 
 
 def render(name, mode, text=None, runner=None, suffix=""):
+    (Path(args.output) / name).parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run([runner or args.runner, args.resources, mode, str(HERE / 'options.json'), 'unused'],
                             input=(HERE / 'fixtures' / name).read_bytes() if text is None else text, capture_output=True)
     (Path(args.output) / f'{name}{suffix}.{mode}.stdout').write_bytes(result.stdout)
@@ -172,11 +173,15 @@ class ClefImport(unittest.TestCase):
             with self.subTest(name=fixture.name):
                 name = fixture.name
                 current = model(name)
-                previous = ET.fromstring(render(name, 'mei', runner=args.baseline_runner, suffix='.baseline'))
+                preservation_runner = args.previous_runner if name.startswith('direction-') else args.baseline_runner
+                if name.startswith('direction-') and not preservation_runner:
+                    self.skipTest('direction-carrier non-direction preservation requires previous actual library')
+                previous = ET.fromstring(render(name, 'mei', runner=preservation_runner, suffix='.previous' if name.startswith('direction-') else '.baseline'))
                 tags = {M + n for n in ['note', 'rest', 'mRest', 'keySig', 'meterSig', 'pedal', 'dir', 'dynam', 'fermata', 'breath', 'tempo']}
+                if name.startswith('direction-'): tags.remove(M + 'dir')
                 semantic = lambda r: {e.get(ID): e.attrib for e in r.iter() if e.tag in tags}
                 self.assertEqual(semantic(current), semantic(previous))
-                now, old = observations(name), observations(name, runner=args.baseline_runner)
+                now, old = observations(name), observations(name, runner=preservation_runner)
                 for id in semantic(current):
                     if id in old:
                         for key in ['time', 'staff', 'layer', 'measure']:
@@ -188,6 +193,48 @@ class ClefImport(unittest.TestCase):
                 if name.startswith('regression-') and name != 'regression-nested.krn':
                     edges = lambda r: {e.get(ID): e.get('sameas') for e in r.iter(M + 'clef')}
                     self.assertEqual(edges(current), edges(previous))
+
+    def test_empty_interpretation_directions(self):
+        for kind in ['clef', 'clef-hidden', 'key', 'meter', 'tempo', 'pedal', 'join', 'xjoin']:
+            with self.subTest(kind=kind):
+                name = ('native-only/' if kind in ['join', 'xjoin'] else '') + 'direction-' + kind + '.krn'
+                root = model(name)
+                dirs = [e for e in root.iter(M + 'dir') if ''.join(e.itertext()).strip() == 'held']
+                self.assertEqual(len(dirs), 0 if kind == 'meter' else 1)
+                if dirs:
+                    expected = {ID: 'dir-L8F1' if kind.startswith('clef') else 'dir-L9F1', 'place': 'above', 'staff': '2'}
+                    if kind.startswith('clef'): expected['startid'] = '#clef-L9F1'
+                    self.assertEqual(dirs[0].attrib, expected)
+                svg = ET.fromstring(render(name, 'svg'))
+                text_groups = [e for e in svg.iter() if 'dir' in e.get('class', '').split() and any(t.tag == S + 'text' for t in e.iter())]
+                self.assertEqual(len(text_groups), 1 if kind.startswith('clef') else 0)
+                layer = lower_layer(root)
+                clef = layer.find(M + 'clef')
+                self.assertEqual((clef.get('shape'), clef.get('line')), ('G', '2'))
+                self.assertEqual(clef.get('visible') == 'false', kind == 'clef-hidden')
+                facts = observations(name)
+                self.assertEqual(Fraction(facts[clef.get(ID)]['time']), Fraction(1, 4))
+                intervals = sorted((Fraction(facts[e.get(ID)]['time']), Fraction(facts[e.get(ID)]['duration'])) for e in layer.iter(M + 'space'))
+                cursor = Fraction(0)
+                for start, duration in intervals:
+                    self.assertEqual(start, cursor)
+                    cursor += duration
+                self.assertEqual(cursor, 1)
+                self.assertFalse(list(layer.iter(M + 'note')))
+                if args.baseline_runner:
+                    previous = ET.fromstring(render(name, 'mei', runner=args.baseline_runner, suffix='.baseline'))
+                    before = [e for e in previous.iter(M + 'dir') if ''.join(e.itertext()).strip() == 'held']
+                    self.assertEqual([e.attrib for e in dirs], [e.attrib for e in before])
+                if kind == 'clef-hidden':
+                    hidden = (HERE / 'fixtures' / name).read_bytes()
+                    control = hidden.replace(b'*clefG2yy', b'*clefG2')
+                    self.assertEqual(control, (HERE / 'fixtures/direction-clef.krn').read_bytes())
+                    self.assertEqual(control.replace(b'*clefG2\t*', b'*clefG2yy\t*'), hidden)
+                    visible = ET.fromstring(render(name, 'svg', text=control, suffix='.control'))
+                    ink = lambda r: [u for g in r.iter() if g.get('id') == clef.get(ID) for u in g.iter(S + 'use')]
+                    self.assertFalse(ink(svg))
+                    self.assertTrue(ink(visible))
+                    self.assertEqual(json.loads(render(name, 'options')), json.loads(render(name, 'options', text=control, suffix='.control')))
 
     def test_empty_layer_preserves_pedal_controls(self):
         root = model('empty-pedal.krn')
@@ -283,6 +330,7 @@ if __name__ == '__main__':
     parser.add_argument('--resources', required=True)
     parser.add_argument('--output', required=True)
     parser.add_argument('--baseline-runner')
+    parser.add_argument('--previous-runner')
     args, remaining = parser.parse_known_args()
     Path(args.output).mkdir(parents=True, exist_ok=True)
     unittest.main(argv=['verify.py', *remaining])

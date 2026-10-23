@@ -63,6 +63,34 @@ class ClefImport(unittest.TestCase):
         self.assertEqual(Fraction(facts['note-L9F2']['time']), Fraction(1, 4))
         self.assertEqual(Fraction(facts['note-L10F2']['time']), Fraction(1, 2))
 
+    def test_source_copy_single_ink_and_canonical_relation(self):
+        import ink
+        for name, hidden in [('source-copy-prepared.krn', False), ('source-copy-hidden.krn', True)]:
+            with self.subTest(name=name):
+                root = model(name)
+                clefs = {e.get(ID): e for e in root.iter(M + 'clef')}
+                owner, copy = 'clef-L11F1', 'clef-L11F1b'
+                self.assertEqual(clefs[copy].get('sameas'), '#' + owner,
+                                 'SOURCE_COPY_OVERPRINT: exact source copy must retain its drawable owner')
+                self.assertEqual((clefs[owner].get('shape'), clefs[owner].get('line')), ('F', '4'))
+                self.assertEqual(clefs[owner].get('visible') == 'false', hidden)
+                self.assertEqual(clefs[copy].get('visible') == 'false', hidden)
+                facts = observations(name)
+                for origin in [owner, copy]:
+                    self.assertEqual((facts[origin]['staff'], Fraction(facts[origin]['time'])), ('1', Fraction(1)))
+                render(name, 'svg')
+                svg, ids, _ = ink.load(Path(args.output) / f'{name}.svg')
+                self.assertEqual(ink.paths(ids[copy], ids, ink.I, ink.DEFAULT), [])
+                self.assertEqual(len(ink.paths(ids[owner], ids, ink.I, ink.DEFAULT)), 0 if hidden else 1)
+                if args.baseline_runner:
+                    old = ET.fromstring(render(name, 'mei', runner=args.baseline_runner, suffix='.baseline'))
+                    before = next(e for e in old.iter(M + 'clef') if e.get(ID) == copy)
+                    self.assertEqual(before.get('sameas'), '#' + owner)
+                    render(name, 'svg', runner=args.baseline_runner, suffix='.baseline')
+                    if not hidden:
+                        self.assertEqual(ink.original(Path(args.output) / f'{name}.svg', owner),
+                                         ink.original(Path(args.output) / f'{name}.baseline.svg', owner))
+
     def test_ordinary_null_class_visibility_source_position(self):
         hidden = (HERE / 'fixtures/ordinary-null-hidden.krn').read_bytes()
         visible = (HERE / 'fixtures/ordinary-null-visible.krn').read_bytes()

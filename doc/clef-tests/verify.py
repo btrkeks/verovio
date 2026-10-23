@@ -174,7 +174,7 @@ class ClefImport(unittest.TestCase):
                 name = fixture.name
                 current = model(name)
                 previous = ET.fromstring(render(name, 'mei', runner=args.baseline_runner, suffix='.baseline'))
-                tags = {M + n for n in ['note', 'rest', 'mRest', 'keySig', 'meterSig']}
+                tags = {M + n for n in ['note', 'rest', 'mRest', 'keySig', 'meterSig', 'pedal', 'dir', 'dynam', 'fermata', 'breath']}
                 semantic = lambda r: {e.get(ID): e.attrib for e in r.iter() if e.tag in tags}
                 self.assertEqual(semantic(current), semantic(previous))
                 now, old = observations(name), observations(name, runner=args.baseline_runner)
@@ -185,6 +185,13 @@ class ClefImport(unittest.TestCase):
                 if name.startswith('regression-') and name != 'regression-nested.krn':
                     edges = lambda r: {e.get(ID): e.get('sameas') for e in r.iter(M + 'clef')}
                     self.assertEqual(edges(current), edges(previous))
+
+    def test_empty_layer_preserves_pedal_controls(self):
+        root = model('empty-pedal.krn')
+        pedals = list(root.iter(M + 'pedal'))
+        self.assertEqual(len(pedals), 2, 'empty clef layer must retain its existing pedal controls')
+        self.assertEqual([(p.get(ID), p.get('staff'), p.get('tstamp'), p.get('dir')) for p in pedals],
+                         [('pedal-L9F1', '2', '2', 'down'), ('pedal-L11F1', '2', '5', 'up')])
 
     def test_partial_empty_layer_retains_its_clef_copy(self):
         name = 'partial-empty.krn'

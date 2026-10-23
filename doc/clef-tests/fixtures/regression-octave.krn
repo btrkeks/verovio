@@ -1,0 +1,18 @@
+**kern	**kern
+*clefF4	*clefG2
+*k[b-]	*k[b-]
+*M4/4	*M4/4
+=	=
+1C	1c
+=	=
+!LO:TX:a:t=held	!
+.	8qdd
+*clefGv2yy	*
+1c	1e
+==	==
+*-	*-
+!!!RDF**kern: > = above
+!!!RDF**kern: < = below
+!!!RDF**kern: N = linked
+!!!RDF**kern: Z = editorial accidental, parentheses
+!!!RDF**kern: j = editorial accidental, brackets

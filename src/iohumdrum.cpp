@@ -17023,15 +17023,14 @@ void HumdrumInput::addOrnamentMarkers(hum::HTp token)
 void HumdrumInput::addClefGapSpace(std::vector<std::string> &elements, std::vector<void *> &pointers,
     hum::HumNum duration, const std::string &typestring)
 {
-    int denominator = duration.getDenominator();
-    while ((denominator > 1) && !(denominator % 2)) denominator /= 2;
+    const int denominator = duration.getDenominator();
     if (denominator == 1) {
         addSpace(elements, pointers, duration, typestring);
         return;
     }
 
-    // A rational clef partition can need non-binary fill even when the old
-    // unsplit budget was binary. Reuse the native tuplet duration representation.
+    // Keep every fractional partition exact with a hidden tuplet of integer
+    // fill. addSpace cannot express every compound binary fraction directly.
     Tuplet *tuplet = new Tuplet();
     tuplet->SetNum(denominator);
     tuplet->SetNumbase(1);

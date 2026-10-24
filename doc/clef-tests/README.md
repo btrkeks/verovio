@@ -53,3 +53,11 @@ Pass absolute verifier paths when using Clef's heavy-gate runner.
 Same-onset key-before-clef sources preserve MEI order and key register. The normal
 renderer’s paint priority is a separate baseline limitation, not an alignment
 correction made by these import assertions.
+
+`verify-mrest-spacing.py` checks the original full-measure rest/end-clef collision
+with the same runner, resources and an external output directory. It requires
+Pillow and `rsvg-convert`. Each role keeps the original SVG hierarchy, styles,
+definitions, transforms and all primitives, including stroked ledger lines.
+It requires nonempty ink, clear rest/clef/key order, no pair overlap and stable
+repeated rendering. Run it against the unchanged library to reproduce the failure.
+This is a focused collision regression, not a universal styled-margin guarantee.

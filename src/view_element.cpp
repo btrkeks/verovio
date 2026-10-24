@@ -16,6 +16,11 @@
 
 //----------------------------------------------------------------------------
 
+#include "bboxdevicecontext.h"
+#include "glyph.h"
+#include "horizontalaligner.h"
+#include "keysig.h"
+#include "metersig.h"
 #include "accid.h"
 #include "artic.h"
 #include "beam.h"
@@ -1221,6 +1226,82 @@ void View::DrawMeterSig(DeviceContext *dc, MeterSig *meterSig, Staff *staff, int
     dc->EndGraphic(meterSig, this);
 }
 
+
+namespace {
+struct MRestPaint {
+    char32_t glyph;
+    int origin;
+    int width;
+    int left;
+    int right;
+    int ledgerExtension;
+    int ledgerThickness;
+    bool ledger;
+};
+
+MRestPaint DescribeMRestPaint(Doc *doc, Staff *staff, bool cue, bool isDouble, int y)
+{
+    const int size = staff->GetDrawingStaffNotationSize();
+    MRestPaint paint {};
+    paint.glyph = isDouble ? SMUFL_E4E2_restDoubleWhole : SMUFL_E4E3_restWhole;
+    paint.width = doc->GetGlyphWidth(paint.glyph, size, cue);
+    paint.origin = -paint.width / 2;
+    const Glyph *glyph = doc->GetResources().GetGlyph(paint.glyph);
+    assert(glyph);
+    int x, gy, width, height;
+    glyph->GetBoundingBox(x, gy, width, height);
+    const int pointSize = doc->GetDrawingSmuflFont(size, cue)->GetPointSize();
+    paint.left = paint.origin + x * pointSize / glyph->GetUnitsPerEm();
+    paint.right = paint.left + width * pointSize / glyph->GetUnitsPerEm();
+    paint.ledger = !isDouble && (y > staff->GetDrawingY()
+        || y < staff->GetDrawingY() - (staff->m_drawingLines - 1) * doc->GetDrawingDoubleUnit(size));
+    if (paint.ledger) {
+        paint.ledgerThickness = doc->GetOptions()->m_ledgerLineThickness.GetValue() * doc->GetDrawingUnit(size);
+        paint.ledgerExtension = doc->GetOptions()->m_ledgerLineExtension.GetValue() * doc->GetDrawingUnit(size);
+        if (cue) {
+            paint.ledgerThickness *= doc->GetOptions()->m_graceFactor.GetValue();
+            paint.ledgerExtension *= doc->GetOptions()->m_graceFactor.GetValue();
+        }
+        const int pen = std::max(1, paint.ledgerThickness);
+        paint.left = std::min(paint.left, paint.origin - paint.ledgerExtension - (pen + 1) / 2);
+        paint.right = std::max(paint.right, paint.origin + paint.width + paint.ledgerExtension + pen / 2);
+    }
+    return paint;
+}
+
+std::pair<int, int> LayerPaintOffset(const LayerElement *element, const Staff *incomingStaff, const Doc *doc)
+{
+    int x = 0, y = 0;
+    for (const Object *object = element; object; object = object->GetParent()) {
+        if (!object->IsLayerElement() || !object->HasInterface(INTERFACE_OFFSET)) continue;
+        const OffsetInterface *offset = object->GetOffsetInterface();
+        const int unit = doc->GetOptions()->m_unit.GetValue();
+        const int ho = offset->HasHo() ? offset->GetHo().GetVu() * unit : 0;
+        const int vo = offset->HasVo() ? offset->GetVo().GetVu() * unit : 0;
+        x += ho * incomingStaff->m_drawingStaffSize / 100;
+        y += vo * incomingStaff->m_drawingStaffSize / 100;
+    }
+    return { x, y };
+}
+
+bool ContextPaints(LayerElement *element, Staff *staff, bool showHidden)
+{
+    if (element->HasSameas()) return false;
+    if (auto *clef = dynamic_cast<Clef *>(element)) {
+        return (showHidden || clef->GetVisible() != BOOLEAN_false)
+            && clef->GetClefGlyph(staff->m_drawingNotationType)
+            && (clef->HasLine() || clef->GetShape() == CLEFSHAPE_perc);
+    }
+    if (auto *key = dynamic_cast<KeySig *>(element)) {
+        return !staff->IsTablature() && (showHidden || key->GetVisible() != BOOLEAN_false)
+            && (key->GetAccidCount() || key->m_drawingCancelAccidCount)
+            && !(key->GetScoreDefRole() == SCOREDEF_SYSTEM && !key->GetAccidCount());
+    }
+    if (auto *meter = dynamic_cast<MeterSig *>(element)) return showHidden || meter->GetVisible() != BOOLEAN_false;
+    return element->HasContentHorizontalBB() && !element->HasEmptyBB();
+}
+}
+
 void View::DrawMRest(DeviceContext *dc, LayerElement *element, Layer *layer, Staff *staff, Measure *measure)
 {
     assert(dc);
@@ -1245,35 +1326,83 @@ void View::DrawMRest(DeviceContext *dc, LayerElement *element, Layer *layer, Sta
 
     mRest->CenterDrawingX();
 
-    const bool drawingCueSize = mRest->GetDrawingCueSize();
-    int x = mRest->GetDrawingX();
+    const bool cue = mRest->GetDrawingCueSize();
     const bool isDouble = (measure->m_measureAligner.GetMaxTime() >= Fraction(2));
     int y = isDouble ? element->GetDrawingY() - m_doc->GetDrawingDoubleUnit(staffSize) : element->GetDrawingY();
-
-    this->CalcOffset(dc, x, y);
-
-    char32_t rest = isDouble ? SMUFL_E4E2_restDoubleWhole : SMUFL_E4E3_restWhole;
-
-    x -= m_doc->GetGlyphWidth(rest, staffSize, drawingCueSize) / 2;
-
-    this->DrawSmuflCode(dc, x, y, rest, staffSize, drawingCueSize);
-
-    // single legder line for whole rest glyphs
-    if (!isDouble
-        && (y > staff->GetDrawingY()
-            || y < staff->GetDrawingY() - (staff->m_drawingLines - 1) * m_doc->GetDrawingDoubleUnit(staffSize))) {
-        const int width = m_doc->GetGlyphWidth(rest, staffSize, drawingCueSize);
-        int ledgerLineThickness
-            = m_doc->GetOptions()->m_ledgerLineThickness.GetValue() * m_doc->GetDrawingUnit(staffSize);
-        int ledgerLineExtension
-            = m_doc->GetOptions()->m_ledgerLineExtension.GetValue() * m_doc->GetDrawingUnit(staffSize);
-        if (drawingCueSize) {
-            ledgerLineThickness *= m_doc->GetOptions()->m_graceFactor.GetValue();
-            ledgerLineExtension *= m_doc->GetOptions()->m_graceFactor.GetValue();
+    const auto offset = LayerPaintOffset(mRest, staff, m_doc);
+    const MRestPaint outputPaint = DescribeMRestPaint(m_doc, staff, cue, isDouble, y + offset.second);
+    auto *bbox = dynamic_cast<BBoxDeviceContext *>(dc);
+    const bool horizontalOnly = bbox && !bbox->UpdateVerticalValues();
+    if (!horizontalOnly && mRest->GetAlignment() && mRest->GetAlignment()->GetType() == ALIGNMENT_FULLMEASURE
+        && measure->m_measureAligner.GetMaxTime() > Fraction(0) && mRest->m_drawingFacsX == VRV_UNSET
+        && !m_doc->IsFacs() && !m_doc->IsTranscription()) {
+        Staff *restStaff = mRest->m_crossStaff ? mRest->m_crossStaff : staff;
+        const int unit = m_doc->GetDrawingUnit(staffSize);
+        int left = measure->GetDrawingX() + measure->GetLeftBarLineRight()
+            + std::ceil((m_doc->GetRightMargin(measure->GetLeftBarLine()) + m_doc->GetLeftMargin(mRest)) * unit);
+        int right = measure->GetDrawingX() + measure->GetRightBarLineLeft()
+            - std::ceil((m_doc->GetLeftMargin(measure->GetRightBarLine()) + m_doc->GetRightMargin(mRest)) * unit);
+        bool hasTail = false;
+        bool missing = false;
+        auto include = [&](LayerElement *context, Staff *sourceStaff) {
+            if (!context || !context->GetAlignment()) return;
+            Staff *paintStaff = context->Is(CLEF) && context->m_crossStaff ? context->m_crossStaff : sourceStaff;
+            if (paintStaff != restStaff || !ContextPaints(context, paintStaff, m_doc->GetOptions()->m_showHidden.GetValue()))
+                return;
+            const auto time = context->GetAlignment()->GetTime();
+            const bool tail = context->IsAnyOf(std::array{ CLEF, KEYSIG })
+                && context->GetScoreDefRole() == SCOREDEF_NONE && time == measure->m_measureAligner.GetMaxTime();
+            const bool leading = time <= Fraction(0);
+            if (!tail && !leading) return;
+            hasTail |= tail;
+            if (!context->HasContentHorizontalBB() || context->HasEmptyBB()) {
+                missing = true;
+                return;
+            }
+            const int contextUnit = m_doc->GetDrawingUnit(paintStaff->m_drawingStaffSize);
+            const int contextOffset = context->Is(CLEF) ? LayerPaintOffset(context, sourceStaff, m_doc).first : 0;
+            const int contentLeft = context->GetContentLeft() + contextOffset;
+            const int contentRight = context->GetContentRight() + contextOffset;
+            if (tail) {
+                right = std::min(right, contentLeft - static_cast<int>(std::ceil(
+                    m_doc->GetLeftMargin(context) * contextUnit + m_doc->GetRightMargin(mRest) * unit)));
+            }
+            if (leading) {
+                left = std::max(left, contentRight + static_cast<int>(std::ceil(
+                    m_doc->GetRightMargin(context) * contextUnit + m_doc->GetLeftMargin(mRest) * unit)));
+            }
+        };
+        for (Object *object : measure->FindAllDescendantsByType(LAYER)) {
+            Layer *contextLayer = vrv_cast<Layer *>(object);
+            Staff *sourceStaff = vrv_cast<Staff *>(contextLayer->GetFirstAncestor(STAFF));
+            include(contextLayer->GetStaffDefClef(), sourceStaff);
+            include(contextLayer->GetStaffDefKeySig(), sourceStaff);
+            include(contextLayer->GetStaffDefMeterSig(), sourceStaff);
+            include(contextLayer->GetStaffDefMensur(), sourceStaff);
+            for (ClassId type : { CLEF, KEYSIG, METERSIG, MENSUR }) {
+                for (Object *context : contextLayer->FindAllDescendantsByType(type)) {
+                    include(vrv_cast<LayerElement *>(context), sourceStaff);
+                }
+            }
         }
-
+        const int low = left - outputPaint.left;
+        const int high = right - outputPaint.right;
+        const bool fit = !missing && high >= low;
+        if (hasTail && fit) {
+            const int target = low + (high - low) / 2;
+            mRest->SetDrawingXRel(0);
+            mRest->SetDrawingXRel(target - mRest->GetDrawingX());
+        }
+    }
+    int x = mRest->GetDrawingX();
+    this->CalcOffset(dc, x, y);
+    const MRestPaint paint = DescribeMRestPaint(m_doc, staff, cue, isDouble, y);
+    x += paint.origin;
+    this->DrawSmuflCode(dc, x, y, paint.glyph, staffSize, cue);
+    if (paint.ledger) {
         dc->StartCustomGraphic("ledgerLines");
-        this->DrawHorizontalLine(dc, x - ledgerLineExtension, x + width + ledgerLineExtension, y, ledgerLineThickness);
+        this->DrawHorizontalLine(dc, x - paint.ledgerExtension, x + paint.width + paint.ledgerExtension,
+            y, paint.ledgerThickness);
         dc->EndCustomGraphic();
     }
 

@@ -529,9 +529,7 @@ void SvgDeviceContext::StartPage()
                 = StringFormat("g.%s {fill: silver; color:silver; stroke:silver;} ", CSS_SHOW_HIDDEN);
             css += showHidden;
         }
-        else {
-            css += "g.placeholder {visibility:hidden} ";
-        }
+        // Clef fork: no `g.placeholder` rule, because View::DrawPlaceholder draws nothing.
         // bounding box css - for debugging
         // css += " g.bounding-box{stroke:red; stroke-width:10} "
         //        "g.content-bounding-box{stroke:blue; stroke-width:10}";

@@ -1701,6 +1701,10 @@ void View::DrawPlaceholder(DeviceContext *dc, Object *object, System *system)
 
     if (object->GetParent() != system) return;
 
+    // Clef fork: placeholders are editor selection targets. Clef has no editor, so
+    // empty system elements stay empty and their dots never reach layout bounds.
+    return;
+
     // Placeholders are hidden by the global CSS, so without it (e.g., with mmOutput) they are not drawn
     if (!dc->Is(BBOX_DEVICE_CONTEXT) && !dc->UseGlobalStyling()) return;
 

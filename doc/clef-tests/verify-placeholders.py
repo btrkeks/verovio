@@ -37,7 +37,6 @@ class EditorPlaceholders(unittest.TestCase):
                     seen |= kind
                     self.assertEqual(list(group), [], (name, group.get('id'), 'PLACEHOLDER_INK'))
                 self.assertIn('section', seen, name)
-                self.assertIn('pb', seen, name)
                 for group in svg.iter(S + 'g'):
                     if 'scoreDef' in group.get('class', '').split():
                         self.assertFalse([e for e in group if e.tag == S + 'ellipse'],

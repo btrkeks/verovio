@@ -9040,14 +9040,11 @@ void HumdrumInput::setTimeSig(StaffDef *part, const std::string &timesig, const 
         setLocationId(vrvmeter, timetok);
     }
 
-    if (metertok) {
+    // Clef fork: upstream 65e0ce582 routed every *met through setMensurationSymbol and
+    // returned before count/unit, which hid common and cut time and lost the *M length.
+    if (metertok && (*metertok == "*met()")) {
         // set time signature to be invisible
         vrvmeter->SetVisible(BOOLEAN_false);
-        // Then process the metersignature alone
-        int kerntrack = metertok->getTrack();
-        int staffindex = m_rkern[kerntrack];
-        setMensurationSymbol(part, *metertok, staffindex, metertok);
-        return;
     }
     if (timetok && timetok->find("yy") != std::string::npos) {
         vrvmeter->SetVisible(BOOLEAN_false);
